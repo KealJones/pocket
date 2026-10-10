@@ -1,0 +1,13 @@
+// Conversation behavior. There are no arithmetic words or question rules here.
+Concept(Greeting(),Surface("hi"),Surface("hello"),Surface("hey"),Surface("hey!"),Surface("hello!"))
+Concept(Thanks(),Surface("thanks"),Surface("thank you"),Surface("thanks!"))
+Concept(Help(),Surface("help"),Surface("what can you do?"))
+Concept(Respond(),
+  Realization(Respond(Resolved($meaning)),body=RespondTo($meaning)),
+  Realization(Respond(Ambiguous($readings)),body=Replied(text="I see more than one possible meaning. Which did you intend?")),
+  Realization(Respond(Learning($work)),body=Replied(text="I'm investigating that. I haven't found enough evidence for a reliable answer yet. I've kept your question so I can revisit it as I learn.")))
+Concept(RespondTo(),
+  Realization(RespondTo(Greeting()),body=Replied(text="Hey Keal! What should we figure out?")),
+  Realization(RespondTo(Thanks()),body=Replied(text="You're welcome! What should we figure out next?")),
+  Realization(RespondTo(Help()),body=Replied(text="I learn from worked examples and what you teach me, retain the procedures that fit the evidence, and investigate unfamiliar questions. Open the inspector to see how a reply was produced.")),
+  Realization(RespondTo($meaning),body=Let($answer,Native("learned.answer",Quote($meaning)),If(Native("value.is-number",$answer),Native("reply.make",Native("number.text",$answer),$answer),If(Native("value.is-reply",$answer),$answer,If(Native("value.is-text",$answer),Native("reply.make",$answer,null),Native("reply.make",Native("text.concat","I understood: ",Native("term.format",Quote($meaning))),null)))))))

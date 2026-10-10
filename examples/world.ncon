@@ -1,0 +1,38 @@
+// Explicit miniature teaching corpus, not built-in world knowledge or prompt answers.
+Concept(Person())
+Concept(Object())
+Concept(Place())
+Concept(Name())
+Concept(Greg(), IsA(Person()), Surface("Greg"))
+Concept(Keal(), IsA(Person()), Surface("Keal"))
+Concept(Emmy(), IsA(Person()), Surface("Emmy"))
+Concept(Book(), IsA(Object()), Surface("book"))
+Concept(Cookie(), IsA(Object()), Surface("cookie"))
+Concept(Library(), IsA(Place()), Surface("library"))
+
+// Spelling hints are private evidence, with multiple sense candidates left intact.
+Concept(What(), Surface("what"), Surface("waht", profile="keal", weight=1.5))
+Concept(Want(), Surface("want"), Surface("waht", profile="keal", weight=0.3))
+
+// Not all senses of the word are attached to a single overloaded identity.
+Concept(FinancialInterest(), Surface("interest"))
+Concept(AttentionInterest(), Surface("interest"))
+Concept(TheSet(), IsA(TelevisionProgram()), Surface("the set"))
+Concept(PerformanceSet(), IsA(Performance()), Surface("set"))
+Concept(ExclamationMark(), IsA(PunctuationMark()), Surface("!"))
+Concept(TheFinger(), IsA(Gesture()), Surface("🖕"))
+
+// A deliberately explicit example of missing roles. Does not fire any effect.
+Concept(ReturnToConstruction(),
+  Construction(
+    pattern=List(Slot($actor, kind=Person()), Literal("returns"), Literal("the"),
+      Slot($object, kind=Object()), Literal("to"), Slot($destination, kind=Place(), optional=true)),
+    meaning=Returning(actor=$actor, object=$object, destination=$destination)))
+
+// Exact arithmetic behavior is authored as ncon, not dispatched by English word.
+Concept(Add(), Realization(Add($a, $b), body=Native("number.add", $a, $b)))
+
+// Intentional simultaneous meanings differ from unresolved alternatives.
+Concept(BankerPun(),
+  Construction(pattern=List(Literal("I used to be a banker, but I lost interest")),
+    meaning=JointInterpretation(FinancialInterest(), AttentionInterest())))

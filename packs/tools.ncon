@@ -1,0 +1,6 @@
+// Fetch is learned through the same labelled-example pipeline as user lessons.
+// The kernel only supplies bounded HTTP transport and retains the returned bytes.
+Concept(WebAddress(),IsA(ResourceAddress()))
+Concept(FetchPage(),IsA(ReadOnlyAction()))
+StarterProcedure("fetch https://example.org",FetchPage(target=WebAddress("https://example.org")),
+  FetchPage(target=$address),"async (url) => await fetch(url)")

@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "packs": [
+    "kernel.ncon",
+    "sources.ncon",
+    "conversation.ncon",
+    "learning.ncon",
+    "tools.ncon",
+    "research.ncon",
+    "grounding.ncon",
+    "notation.ncon",
+    "evidence.ncon"
+  ],
+  "required": [
+    "Hear",
+    "Interpret",
+    "Learn",
+    "Exist",
+    "LearnExample",
+    "Speak",
+    "PredictionError",
+    "UpdateExpectation",
+    "CandidateScore",
+    "InterpretationPolicy",
+    "LearningPolicy"
+  ]
+}

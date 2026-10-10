@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#f6f5ef">
+  <meta name="description" content="A hands-on workbench for concepts that learn, retain evidence, and revise their interpretations.">
+  <title>Napkin Next · Learning conversation</title>
+  <link rel="stylesheet" href="/style.css">
+  <link rel="stylesheet" href="/mobile.css">
+</head>
+<body>
+  <header><a class="brand" href="/" aria-label="Napkin Next home"><span class="mark">n.</span><span>napkin <strong>next</strong><small>LEARNING CONVERSATION</small></span></a><span id="saved" role="status">Opening notebook…</span></header>
+  <main>
+    <aside>
+      <details id="settings"><summary>Notebook & settings</summary>
+      <div class="eyebrow">A PLACE TO THINK</div><h1>Teach it.<br>See what sticks.</h1>
+      <p>Every phrase is evidence. Every interpretation can change.</p>
+      <button class="primary" id="demo" disabled>Try the learning demo <span>↗</span></button>
+      <p class="hint">Teach one example, then try it with someone and something new.</p>
+      <div class="stats"><div><strong id="conceptCount">—</strong><span>concepts</span></div><div><strong id="lessonCount">—</strong><span>lessons</span></div><div><strong id="jobCount">—</strong><span>open tasks</span></div></div>
+      <label class="toggle"><input id="online" type="checkbox" checked><span>Look up unknown words online</span></label>
+      <div class="storage-note"><span class="dot"></span>Learning lives in this browser.<br>Download a backup to keep a copy.</div>
+      <div class="tools"><button id="backup" disabled>↓ Backup</button><button id="restore" disabled>↑ Restore</button><input id="restoreFile" type="file" accept=".sqlite,.db" hidden></div>
+      <a class="source-link" href="/napkin-next-source.zip" download>Download project source ↗</a>
+      </details>
+    </aside>
+    <section class="workspace">
+      <nav aria-label="Conversation sections"><button data-tab="talk" aria-selected="true">Chat</button><button data-tab="teach" aria-selected="false">Teach</button><button data-tab="knowledge" aria-selected="false">Knowledge</button><button data-tab="work" aria-selected="false">Learning <span id="workBadge">0</span></button></nav>
+      <div id="notice" role="status" hidden></div>
+      <section id="talk" class="panel">
+        <div class="panel-title"><span>Your conversation</span><span class="tiny">PROFILE · KEAL</span></div>
+        <div id="history" aria-live="polite"><div class="welcome"><div class="scribble">↳</div><h2>Hey Keal. What should we figure out?</h2><p>I retain what I learn, investigate unfamiliar questions, and revisit them when new evidence arrives.</p><div class="chips"><button data-prompt="hi">Say hello</button><button data-prompt="fetch https://example.org">Fetch a page</button></div><small>A learning prototype. Open a reply’s inspector to see its evidence.</small></div></div>
+        <form id="talkForm"><label class="sr-only" for="message">Message</label><textarea id="message" rows="2" placeholder="Ask something, or fetch a URL…" maxlength="12000" required></textarea><div class="composer-bottom"><span>Your words stay intact.</span><button type="submit" class="primary" id="send" disabled>Send ↑</button></div></form>
+      </section>
+      <section id="teach" class="panel" hidden>
+        <div class="panel-title">Learning begins with evidence</div>
+        <h2>Show it what happened.</h2><p>Give an input and its observed result. Varied examples help it discover a reusable procedure; contradictions can withdraw it.</p>
+        <form id="outcomeForm"><label for="outcomeText">Original input</label><textarea id="outcomeText" rows="2" placeholder="An example it can learn from" required></textarea><label for="outcomeValue">Observed numeric result</label><input id="outcomeValue" type="number" step="any" inputmode="decimal" required><button type="submit" class="primary" disabled>Learn from this result</button></form>
+        <div class="divider"></div><h2>Teach a meaning.</h2><p>Known referents become reusable slots. Original language remains evidence.</p>
+        <form id="exampleForm"><label for="exampleText">An example sentence</label><textarea id="exampleText" rows="2" required>Greg returns the book</textarea><label for="meaning">Its meaning in concepts</label><textarea id="meaning" class="code" rows="3" required>Returning(actor=Greg(), object=Book())</textarea><label><input id="textSlots" type="checkbox"> Capture text arguments without requiring known concepts</label><p class="hint">For example, teach “find capital for Hawaii” as FactQuestion(relation="capital", subject="Hawaii") to learn a new research question form.</p><button class="primary" type="submit" disabled>Learn this example ↗</button></form>
+        <div class="divider"></div><details><summary>Teach a code realization</summary><p class="hint">Teach a phrase and its implementation. JavaScript functions currently support numeric expressions, const bindings, fetch, await, and response.text(). The source and generated concepts stay linked.</p><form id="codeForm"><label for="codeInput">Example phrase</label><textarea id="codeInput" rows="2" required>retrieve https://example.org</textarea><label for="codeMeaning">Example meaning</label><textarea id="codeMeaning" class="code" rows="2" required>FetchText(target=WebAddress("https://example.org"))</textarea><label for="codePattern">Realization parameters</label><textarea id="codePattern" class="code" rows="2" required>FetchText(target=$address)</textarea><label for="codeLanguage">Code language</label><select id="codeLanguage"><option value="javascript">JavaScript function</option><option value="ncon">.ncon realization body</option></select><label for="codeBody">Code example</label><textarea id="codeBody" class="code" rows="5" required>async function fetchText(url) {
+  const response = await fetch(url);
+  return await response.text();
+}</textarea><button type="submit" class="secondary" disabled>Learn this realization</button></form></details>
+        <div class="divider"></div><details><summary>Add or change a concept</summary><p class="hint">Add a name, spelling, relation, or authored behavior. This is your trusted notebook.</p><form id="conceptForm"><label class="sr-only" for="conceptText">Concept definition</label><textarea id="conceptText" class="code" rows="5" required>Concept(Greg(), Surface("Greg"), IsA(Person()))
+Concept(Book(), Surface("book"), IsA(Object()))</textarea><button type="submit" class="secondary" disabled>Save concepts</button></form></details>
+        <div id="lessonResult" class="lesson-result" hidden></div>
+        <button id="curriculum" class="text-button" disabled>Load the optional demo concepts</button>
+      </section>
+      <section id="knowledge" class="panel" hidden><div class="panel-title">What it has retained</div><label class="sr-only" for="search">Search concepts</label><input id="search" type="search" placeholder="Find a concept or surface…"><div id="concepts"></div></section>
+      <section id="work" class="panel" hidden><div class="panel-title">Unfinished questions</div><h2>Unknown is a starting point.</h2><p>Source lookups and missing structure stay here until evidence can help.</p><button id="exist" class="primary" disabled>Investigate & revisit ↗</button><div id="jobs"></div><div id="workResult" hidden></div><div class="divider"></div><form id="pageForm"><label for="pageUrl">Fetch a source as evidence</label><input id="pageUrl" type="url" placeholder="https://…" required><button type="submit" class="secondary" disabled>Fetch source</button></form><div id="pageResult" hidden></div></section>
+    </section>
+  </main>
+  <footer><span>NAPKIN NEXT · 0.3</span><span>Evidence first. Learning always.</span></footer>
+  <script src="/vendor/sql-wasm.js"></script><script type="module" src="/app.js"></script>
+</body>
+</html>

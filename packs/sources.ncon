@@ -1,0 +1,19 @@
+// Sources are ordinary concepts. Endpoint/mapping changes do not change the kernel.
+// Imported descriptions/labels remain data and cannot install executable realizations.
+// A source of observations, not language rules or operation mappings.
+Concept(ExampleCorpusSource(),IsA(LearningSource()),Adapter("dataset-examples"),
+  Endpoint("https://datasets-server.huggingface.co/rows"),
+  Dataset("ChrisMcCormick/basic-arithmetic"),Configuration("default"),Split("train"),
+  InputColumn("question"),OutputColumn("answer"),License("MIT"),Priority(5))
+Concept(WikidataSource(), IsA(LearningSource()),
+  Adapter("wikidata"), Endpoint("https://www.wikidata.org/w/api.php"),
+  License("CC0-1.0"), Language("en"), Priority(10),
+  Mapping("P31", IsA()), Mapping("P279", SubclassOf()),
+  ValueMapping("P1181",Denotes(),datatype="quantity",unit="1"))
+
+// This adapter stores a fetched page as attributed raw evidence, not invented semantics.
+Concept(WiktionarySource(), IsA(LearningSource()),
+  Adapter("mediawiki-text"), Endpoint("https://en.wiktionary.org/w/api.php"),
+  License("CC-BY-SA-4.0"), Language("en"), Priority(20))
+Concept(WikipediaSource(),IsA(LearningSource()),Adapter("wikipedia-summary"),
+  Endpoint("https://en.wikipedia.org/w/api.php"),License("CC-BY-SA-4.0"),Language("en"),Priority(30))

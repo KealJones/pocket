@@ -1,0 +1,7 @@
+// Candidate building blocks. These do not map English to operations.
+// Semantics must be inferred from input/output evidence before a procedure is installed.
+Concept(AddCapability(),IsA(InductionPrimitive()),Capability("number.add"),Arity(2),Commutative(true))
+Concept(SubtractCapability(),IsA(InductionPrimitive()),Capability("number.subtract"),Arity(2))
+Concept(MultiplyCapability(),IsA(InductionPrimitive()),Capability("number.multiply"),Arity(2),Commutative(true))
+Concept(DivideCapability(),IsA(InductionPrimitive()),Capability("number.divide"),Arity(2))
+Concept(InductionPolicy(),MinimumExamples(2),MaximumExpressions(256))

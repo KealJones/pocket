@@ -1,0 +1,35 @@
+// Reading source text uses the same language evidence as reading a user message.
+// A source observation cannot execute its interpreted meaning.
+Concept(EvidenceReadingPolicy(),MaximumPassages(64),RevisitBudget(2))
+Concept(SentenceBoundary(),Construction(pattern=List(Slot($meaning),Literal(".")),meaning=$meaning))
+Concept(RespondTo(),Realization(RespondTo(RequestKnowledge($pattern)),body=Native("knowledge.query",Quote($pattern))))
+Concept(FactQuestion(),IsA(Request()))
+Concept(TopicQuestion(),IsA(Request()))
+Concept(SearchQuestion(),IsA(Request()))
+Concept(ActionQuestion(),IsA(Request()))
+Concept(MeasurementQuestion(),IsA(Request()))
+Concept(RequestValue(),IsA(Request()))
+Concept(RequestKnowledge(),IsA(Request()))
+Concept(ReferentCorrection(),IsA(Request()))
+// This is language and intent teaching, not a collection of domain answers.
+// Acquisition clauses and a request for help compose through typed relations.
+Concept(Situation())
+Concept(EncounterVerb(),Surface("got"),Surface("have"),Surface("experienced"),Surface("encountered"))
+Concept(GuidanceRequest(),IsA(Request()),Surface("what should I do"),Surface("what can I do"),Surface("what do I do"))
+Concept(SituationClause(),Construction(pattern=List(Literal("I"),Lexeme(EncounterVerb()),Slot($subject,capture="text")),meaning=Situation(subject=$subject),weight=1))
+Concept(SituationClause(),Construction(pattern=List(Literal("I"),Lexeme(EncounterVerb()),Literal("a"),Slot($subject,capture="text")),meaning=Situation(subject=$subject),weight=6))
+Concept(GuidanceComposition(),Construction(pattern=List(Slot($situation,kind=Situation()),Optional(Literal(",")),Lexeme(GuidanceRequest()),Optional(Literal("?"))),meaning=GuidanceQuestion(situation=$situation),weight=3))
+Concept(GuidanceComposition(),Construction(pattern=List(Lexeme(GuidanceRequest()),Literal("about"),Slot($subject,capture="text"),Optional(Literal("?"))),meaning=GuidanceQuestion(situation=Situation(subject=$subject)),weight=3))
+Concept(GuidanceQuestion(),IsA(Request()),ContextualArgument("kind"))
+// A semantic seed requests a source relationship by its form; its external ID,
+// aliases, connected properties, situations and values must be acquired.
+Concept(GuidanceRelation(),Realization(GuidanceRelation(),body=RelationSelector(forms=List("handled, mitigated, or managed by"),follow=RelatedProperty())))
+Concept(RespondTo(),
+ Realization(RespondTo(GuidanceQuestion(situation=Situation(subject=$subject))),body=Let($relation,GuidanceRelation(),ResearchFact($relation,$subject))),
+ Realization(RespondTo(GuidanceQuestion(situation=Situation(subject=$subject),kind=$kind)),body=Let($relation,GuidanceRelation(),ResearchFact($relation,$subject,$kind))))
+Concept(ResearchPolicy(),MaximumRelatedProperties(24))
+Concept(WikidataSource(),Mapping("P1659",RelatedProperty()))
+Concept(MethodRequest(),Surface("how do I"),Surface("how can I"),Surface("how to"))
+Concept(ResolutionVerb(),Surface("handle"),Surface("manage"),Surface("mitigate"),Surface("resolve"),Surface("fix"))
+Concept(MethodComposition(),Construction(pattern=List(Lexeme(MethodRequest()),Lexeme(ResolutionVerb()),Slot($subject,capture="text"),Optional(Literal("?"))),meaning=GuidanceQuestion(situation=Situation(subject=$subject)),weight=3))
+Concept(MethodComposition(),Construction(pattern=List(Lexeme(MethodRequest()),Lexeme(ResolutionVerb()),Literal("a"),Slot($subject,capture="text"),Optional(Literal("?"))),meaning=GuidanceQuestion(situation=Situation(subject=$subject)),weight=7))

@@ -1,0 +1,85 @@
+// Examples teach reusable language through the ordinary lesson learner. These
+// strings illustrate argument positions, not preloaded facts or property IDs.
+StarterLesson("what is the capital of Hawaii?",FactQuestion(relation="capital",subject="Hawaii"),textSlots=true,weight=3)
+StarterLesson("what is capital of Hawaii?",FactQuestion(relation="capital",subject="Hawaii"),textSlots=true,weight=1)
+StarterLesson("what is the capital of Hawaii",FactQuestion(relation="capital",subject="Hawaii"),textSlots=true,weight=3)
+StarterLesson("what is capital of Hawaii",FactQuestion(relation="capital",subject="Hawaii"),textSlots=true,weight=1)
+StarterLesson("what is photosynthesis?",TopicQuestion(subject="photosynthesis"),textSlots=true)
+StarterLesson("what is photosynthesis",TopicQuestion(subject="photosynthesis"),textSlots=true)
+StarterLesson("who is Ada Lovelace?",TopicQuestion(subject="Ada Lovelace"),textSlots=true,weight=8)
+StarterLesson("who is Ada Lovelace",TopicQuestion(subject="Ada Lovelace"),textSlots=true,weight=8)
+StarterLesson("tell me about photosynthesis",TopicQuestion(subject="photosynthesis"),textSlots=true)
+StarterLesson("learn about photosynthesis",TopicQuestion(subject="photosynthesis"),textSlots=true)
+// A weak whole-question search proposal stays below more specific taught intents.
+StarterLesson("how do birds migrate?",SearchQuestion(subject="how do birds migrate"),textSlots=true,weight=-1)
+
+Concept(ResearchPolicy(),MaximumRequests(32),MaximumResearchMilliseconds(180000),SearchLimit(50),MaximumSearchPages(4),CacheMilliseconds(86400000),
+  EndTimeProperty("P582"),PointInTimeProperty("P585"))
+// Host capabilities implement structured source protocols, evidence storage and
+// graph matching. Concept programs choose the research behavior for an intent.
+Concept(ResearchFact(),Realization(ResearchFact($relation,$subject),body=Native("research.fact",$relation,$subject)))
+Concept(ResearchTopic(),Realization(ResearchTopic($subject),body=Native("research.topic",$subject)))
+Concept(RespondTo(),
+  Realization(RespondTo(FactQuestion(relation=$relation,subject=$subject)),body=ResearchFact($relation,$subject)),
+  Realization(RespondTo(TopicQuestion(subject=$subject)),body=ResearchTopic($subject)),
+  Realization(RespondTo(SearchQuestion(subject=$subject)),body=ResearchTopic($subject)))
+
+// Agent-role questions taught from opaque examples. Property IDs, titles, names,
+// and answers are acquired from sources. One-token action/kind slots keep a title's
+// remaining words intact; the optional kind is checked against source taxonomy.
+StarterLesson("who florped ZX?",ActionQuestion(action="florped",subject="ZX"),textSlots=true,captureLimits=Limits(action=1),weight=3)
+StarterLesson("who florped ZX",ActionQuestion(action="florped",subject="ZX"),textSlots=true,captureLimits=Limits(action=1),weight=3)
+StarterLesson("who florped the ZX?",ActionQuestion(action="florped",subject="ZX"),textSlots=true,captureLimits=Limits(action=1),weight=4)
+StarterLesson("who florped the ZX",ActionQuestion(action="florped",subject="ZX"),textSlots=true,captureLimits=Limits(action=1),weight=4)
+StarterLesson("who florped the widget ZX?",ActionQuestion(action="florped",kind="widget",subject="ZX"),textSlots=true,captureLimits=Limits(action=1,kind=1),weight=7)
+StarterLesson("who florped the widget ZX",ActionQuestion(action="florped",kind="widget",subject="ZX"),textSlots=true,captureLimits=Limits(action=1,kind=1),weight=7)
+// This English role construction proposes a passive source form. It is accepted
+// only when a source actually supplies that exact property label/alias.
+Concept(AgentRelationForm(),Realization(AgentRelationForm($action),body=Native("text.concat",$action," by")))
+Concept(ResearchFact(),Realization(ResearchFact($relation,$subject,$kind),body=Native("research.fact",$relation,$subject,$kind)))
+Concept(RespondTo(),
+ Realization(RespondTo(ActionQuestion(action=$action,subject=$subject)),body=Let($relation,AgentRelationForm($action),ResearchFact($relation,$subject))),
+ Realization(RespondTo(ActionQuestion(action=$action,kind=$kind,subject=$subject)),body=Let($relation,AgentRelationForm($action),ResearchFact($relation,$subject,$kind))),
+ Realization(RespondTo(FactQuestion(relation=$relation,subject=$subject,kind=$kind)),body=ResearchFact($relation,$subject,$kind)))
+Concept(ResearchPolicy(),MaximumTypeDepth(4),MaximumTypeNodes(20))
+
+// The same example learner teaches subject correction and measurement questions.
+// No titles, ships, facts, property IDs, or answers are supplied here.
+StarterLesson("no the widget",ReferentCorrection(kind="widget"),textSlots=true,weight=5)
+StarterLesson("no, the widget",ReferentCorrection(kind="widget"),textSlots=true,weight=5)
+StarterLesson("no widget",ReferentCorrection(kind="widget"),textSlots=true,weight=3)
+StarterLesson("the widget",ReferentCorrection(kind="widget"),textSlots=true,weight=-1,context=Context(AwaitingClarification()))
+StarterLesson("I mean the widget",ReferentCorrection(kind="widget"),textSlots=true,weight=5)
+StarterLesson("I mean widget",ReferentCorrection(kind="widget"),textSlots=true,weight=3)
+Concept(ReferentCorrection(),IsA(Correction()))
+Concept(ContextFor(),Realization(ContextFor(ReferentCorrection(kind=$kind)),
+ body=Let($kindForm,ReferentKindForm($kind),Context(ArgumentHint(name="kind",value=$kindForm)))))
+// A local, editable pragmatic reading for this correction form. It does not
+// assert that all boats and ships are identical in the knowledge graph.
+Concept(ReferentKindForm(),
+ Realization(ReferentKindForm("boat"),body="watercraft"),
+ Realization(ReferentKindForm("Boat"),body="watercraft"),
+ Realization(ReferentKindForm($kind),body=$kind))
+Concept(FactQuestion(),ContextualArgument("kind"))
+Concept(ActionQuestion(),ContextualArgument("kind"))
+Concept(TopicQuestion(),ContextualArgument("kind"))
+Concept(SearchQuestion(),ContextualArgument("kind"))
+Concept(MeasurementQuestion(),ContextualArgument("kind"))
+StarterLesson("how big is ZX?",MeasurementQuestion(subject="ZX"),textSlots=true,weight=8)
+StarterLesson("how big is ZX",MeasurementQuestion(subject="ZX"),textSlots=true,weight=8)
+StarterLesson("how big is the ZX?",MeasurementQuestion(subject="ZX"),textSlots=true,weight=14)
+StarterLesson("how big is the ZX",MeasurementQuestion(subject="ZX"),textSlots=true,weight=14)
+// Authored size facets. Matching property labels/aliases and all quantities/units
+// come from source evidence; missing facets are never made up.
+Concept(SizeFacets(),Realization(SizeFacets(),body=List("length","width","height","beam","draught","draft","area","volume","mass","gross tonnage","tonnage","gross register tonnage","displacement")))
+Concept(ResearchMeasurements(),
+ Realization(ResearchMeasurements($subject),body=Let($facets,SizeFacets(),Native("research.measure",$subject,$facets))),
+ Realization(ResearchMeasurements($subject,$kind),body=Let($facets,SizeFacets(),Native("research.measure",$subject,$facets,$kind))))
+Concept(ResearchTopic(),Realization(ResearchTopic($subject,$kind),body=Native("research.topic",$subject,$kind)))
+Concept(RespondTo(),
+ Realization(RespondTo(MeasurementQuestion(subject=$subject)),body=ResearchMeasurements($subject)),
+ Realization(RespondTo(MeasurementQuestion(subject=$subject,kind=$kind)),body=ResearchMeasurements($subject,$kind)),
+ Realization(RespondTo(TopicQuestion(subject=$subject,kind=$kind)),body=ResearchTopic($subject,$kind)),
+ Realization(RespondTo(SearchQuestion(subject=$subject,kind=$kind)),body=ResearchTopic($subject,$kind)),
+ Realization(RespondTo(ReferentCorrection(kind=$kind)),body=Replied(text="Which earlier subject should I interpret as that kind?")))
+Concept(ResearchPolicy(),MaximumMeasurements(32))

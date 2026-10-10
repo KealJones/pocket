@@ -1,0 +1,33 @@
+// Small grounded bootstrap. These are editable teaching materials, not host
+// dispatch. English operation aliases are acquired from source senses on demand.
+Concept(RequestLearningPolicy(),MaximumPasses(12),MaximumJobs(8),MaximumDecodings(64),MaximumMilliseconds(45000))
+Concept(ExampleExpression(),IsA(ComputableExpression()),Surface("example expression"))
+StarterLesson("what is example expression?",RequestValue(ExampleExpression()),weight=9)
+StarterLesson("what is example expression",RequestValue(ExampleExpression()),weight=9)
+StarterLesson("how much is example expression?",RequestValue(ExampleExpression()),weight=9)
+StarterLesson("how much is example expression",RequestValue(ExampleExpression()),weight=9)
+
+Concept(ScalarProduct(),IsA(ComputableExpression()),Surface("*"),
+  SenseIdentity("Q40276",source=WikidataSource()),
+  Frame(pattern=List(Slot($left,primitive="number"),Lexeme(ScalarProduct()),Slot($right,primitive="number")),meaning=ScalarProduct($left,$right)),
+  ImplementationLesson(ScalarProduct($left,$right),language="javascript",code="(a,b) => a*b",
+    checks=List(Check(ScalarProduct(7,6),42),Check(ScalarProduct(4,9),36))))
+Concept(ScalarSum(),IsA(ComputableExpression()),Surface("+"),
+  SenseIdentity("Q32043",source=WikidataSource()),
+  Frame(pattern=List(Slot($left,primitive="number"),Lexeme(ScalarSum()),Slot($right,primitive="number")),meaning=ScalarSum($left,$right)),
+  ImplementationLesson(ScalarSum($left,$right),language="javascript",code="(a,b) => a+b",
+    checks=List(Check(ScalarSum(7,6),13),Check(ScalarSum(4,9),13))))
+Concept(ScalarDifference(),IsA(ComputableExpression()),Surface("-"),
+  SenseIdentity("Q40754",source=WikidataSource()),
+  Frame(pattern=List(Slot($left,primitive="number"),Lexeme(ScalarDifference()),Slot($right,primitive="number")),meaning=ScalarDifference($left,$right)),
+  ImplementationLesson(ScalarDifference($left,$right),language="javascript",code="(a,b) => a-b",
+    checks=List(Check(ScalarDifference(7,6),1),Check(ScalarDifference(4,9),-5))))
+Concept(ScalarQuotient(),IsA(ComputableExpression()),Surface("/"),
+  SenseIdentity("Q1226939",source=WikidataSource()),
+  Frame(pattern=List(Slot($left,primitive="number"),Lexeme(ScalarQuotient()),Slot($right,primitive="number")),meaning=ScalarQuotient($left,$right)),
+  ImplementationLesson(ScalarQuotient($left,$right),language="javascript",code="(a,b) => a/b",
+    checks=List(Check(ScalarQuotient(12,6),2),Check(ScalarQuotient(9,4),2.25))))
+
+// Interpretation and execution remain distinct. Only the chosen meaning is used.
+Concept(RespondTo(),Realization(RespondTo(RequestValue($expression)),
+  body=Let($answer,Native("expression.evaluate",Quote($expression)),RespondTo($answer))))

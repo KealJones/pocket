@@ -1,0 +1,27 @@
+{
+  "name": "napkin-next",
+  "version": "0.8.0",
+  "description": "A learning-first concept runtime with lossless input and revisable interpretations",
+  "type": "module",
+  "private": true,
+  "engines": {
+    "node": ">=22.13.0"
+  },
+  "scripts": {
+    "start": "node --disable-warning=ExperimentalWarning src/cli.mjs",
+    "test": "node --disable-warning=ExperimentalWarning --test test/*.test.mjs",
+    "demo": "node --disable-warning=ExperimentalWarning examples/demo.mjs",
+    "check": "node scripts/check.mjs",
+    "build": "node scripts/build-web.mjs"
+  },
+  "devDependencies": {
+    "@noble/hashes": "^2.4.0",
+    "esbuild": "^0.28.2",
+    "fake-indexeddb": "^6.2.5",
+    "jsdom": "^30.1.2",
+    "sql.js": "^1.14.2"
+  },
+  "dependencies": {
+    "acorn": "^8.18.0"
+  }
+}

@@ -1,0 +1,25 @@
+// Read notation through the ordinary checked ImplementationLesson learner.
+// These are starter teaching materials. No VI -> 6 surface or answer is seeded.
+// A decoded value is a proposal for a typed slot, never a global word replacement.
+Concept(RomanNumerals(),Surface("Roman numerals"),Surface("Roman numeral"),
+  ContextHint(NumeralSystem(RomanNumerals())))
+Concept(RomanValue(),IsA(ComputableExpression()),
+  ReadForm(RomanValue($text),primitive="number",recognizes="^[IVXLCDM]+$",notation=NumeralSystem(RomanNumerals()),fragmentOnly=true),
+  ImplementationLesson(RomanValue($text),
+    body=If(Native("text.matches",$text,"^(?=.)M{0,3}(CM|CD|D?C{0,3})(XC|XL|L?X{0,3})(IX|IV|V?I{0,3})$"),RomanSum($text,0),Quote(NoReading())),
+    checks=List(Check(RomanValue("VI"),6),Check(RomanValue("IX"),9),Check(RomanValue("XXIV"),24),Check(RomanValue("IIII"),NoReading()),Check(RomanValue("mix"),NoReading()))))
+Concept(RomanDigit(),
+  Realization(RomanDigit("I"),body=1),Realization(RomanDigit("V"),body=5),
+  Realization(RomanDigit("X"),body=10),Realization(RomanDigit("L"),body=50),
+  Realization(RomanDigit("C"),body=100),Realization(RomanDigit("D"),body=500),
+  Realization(RomanDigit("M"),body=1000),Realization(RomanDigit(""),body=0))
+Concept(RomanSum(),Realization(RomanSum($text,$index),
+  body=If(Native("number.less",$index,Native("text.length",$text)),
+    Let($next,Native("number.add",$index,1),
+      Let($char,Native("text.at",$text,$index),
+        Let($following,Native("text.at",$text,$next),
+          Let($value,RomanDigit($char),
+            Let($nextValue,RomanDigit($following),
+              Let($tail,RomanSum($text,$next),
+                If(Native("number.less",$value,$nextValue),Native("number.subtract",$tail,$value),Native("number.add",$tail,$value)))))))),0)))
+Concept(RespondTo(),Realization(RespondTo(RomanNumerals()),body=Replied(text="Which question should I read using Roman numerals?")))

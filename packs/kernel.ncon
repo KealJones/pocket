@@ -1,0 +1,36 @@
+// Behavior is written in concepts. Native facilities perform mechanical work only.
+Concept(PredictionError(),
+  Realization(PredictionError($expected, $obtained),
+    body=Native("number.subtract", $obtained, $expected)))
+
+Concept(UpdateExpectation(),
+  Realization(UpdateExpectation($expected, $obtained, $rate),
+    body=Native("number.add", $expected,
+      Native("number.multiply", $rate, PredictionError($expected, $obtained)))))
+
+// Scores rank hypotheses; they are deliberately NOT claimed to be probabilities.
+Concept(CandidateScore(),
+  Realization(CandidateScore($evidence, $expectation, $holes),
+    body=Native("number.subtract",
+      Native("number.add", $evidence, Native("number.multiply", 0.01, $expectation)),
+      Native("number.multiply", 0.25, $holes))))
+
+Concept(InterpretationPolicy(),
+  Margin(0.15), MaximumStates(16384), MaximumCandidates(64), MaximumSpan(12))
+Concept(LearningPolicy(), LearningRate(0.2), RequestTimeout(15000), MaximumBytes(1000000), TickBudget(2))
+
+Concept(Hear(), Realization(Hear($text), body=Native("input.capture", $text)))
+Concept(Interpret(), Realization(Interpret($input, $profile, $context),
+  body=Native("construction.propose", $input, $profile, $context)))
+Concept(LearnExample(), Realization(LearnExample($input, $meaning, $profile),
+  body=Native("construction.learn-example", $input, $meaning, $profile)))
+Concept(Learn(), Realization(Learn($budget), body=Native("agenda.run", $budget)))
+Concept(Exist(), Realization(Exist($budget), body=Native("agenda.exist", $budget)))
+
+// Mouth emits explicit progress or concept expressions; it never invents an answer.
+Concept(Speak(),
+  Realization(Speak(Resolved($meaning)), body=Native("term.format", Quote($meaning))),
+  Realization(Speak(Ambiguous($readings)),
+    body=Native("text.concat", "Several readings remain: ", Native("term.format", Quote($readings)))),
+  Realization(Speak(Learning($pending)),
+    body=Native("text.concat", "Learning work remains: ", Native("term.format", Quote($pending)))))

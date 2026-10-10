@@ -1,0 +1,7 @@
+data/
+*.sqlite*
+node_modules/
+dist/
+.openai/artifacts/
+.openai/runtime/
+coverage/
