@@ -545,3 +545,37 @@ as fetching pages. Checked code examples can become reusable realizations; pure
 learned string procedures can generate templates. General program authoring,
 conversion of arbitrary languages, unrestricted execution and general dialogue
 understanding are not implemented by adding this assessment layer.
+
+## Retained process trace and review (0.10)
+
+SQLite schema version 2 adds append-only `trace_events`, indexed by episode and
+request/review run. Opening an older notebook creates the table without erasing
+knowledge. Events retain runtime observations: initial and final candidate
+rankings, holes and supports; independent learning budgets and source-job choices;
+selection margins and declared reasons; realization rules and actual capability
+invocations, including nested evaluations; output assessments; teacher validation
+failures, repairs and installed concepts; request retries and withdrawals.
+These are observable decisions and configured rules, not hidden model reasoning.
+
+Audit events have no truth-maintenance dependency on the concepts they describe.
+Withdrawing a concept invalidates its dependent knowledge/replies while its
+original trace and inactive record remain available for diagnosis. Display traces
+are bounded and explicitly mark truncation; linked database records preserve
+original observations. Each completed or failed run has an outcome event.
+
+Optional Gemini proposals now receive a bounded trace from the current episode.
+An explicit **Review this learning process with Gemini** action can also review a
+completed response. It returns separately attributed `LearningReview` and optional
+`LearningDiagnosis` suggestions, each diagnosis anchored to a supplied trace event.
+New concepts/constructions/implementations still pass the existing detached checks,
+are retained with dependencies, and retry the original observation. They can be
+used without Gemini afterward. Reviews cannot silently replace core policies or
+host code; host implementation defects can be reported as suggestions. A critique
+is not proof, a factual assertion, or a reward.
+
+**Learning history** exports JSON containing all trace events, active and inactive
+`.ncon` records with sources/dependencies, and completed/pending jobs. **SQLite
+backup** exports the full restorable notebook, including audit history. The JSON
+is intended for inspection and analysis; it is not an executable import format.
+CLI `:history("learning-history.json")` exports the same data. Export includes
+personal input and retained evidence; the user explicitly controls downloading it.

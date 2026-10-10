@@ -7,3 +7,5 @@ input[type=number],input[type=url],select{width:100%;font-size:16px;border:1px s
 @media(max-width:600px){main{padding:12px;gap:14px}header{padding:12px 16px;gap:12px}.brand small{font-size:8px;letter-spacing:1.5px}.panel{padding:16px}nav{padding:6px;gap:0}nav button{padding:8px 10px;font-size:12px}.welcome h2{font-size:23px}.welcome{padding:20px 0 28px}.tiny{font-size:8px}#talk{height:calc(100dvh - 165px);min-height:280px}textarea.code{font-size:16px}.composer-bottom span{max-width:130px;font-size:11px}#notice{padding:12px 16px}aside{display:block}aside>details{padding:10px 15px}aside .stats{display:flex;gap:12px}aside>details .toggle{display:flex}aside>details .source-link{margin-top:15px;text-align:left}footer{padding-left:16px;padding-right:16px;font-size:9px}.reward{gap:8px}.reward label{font-size:12px}.reward input{width:72px}.reward button{padding:8px}.panel>h2{font-size:22px}}
 
 .inspector textarea{width:100%;min-height:80px;font-size:16px}.inspector button{white-space:normal;overflow-wrap:anywhere}
+
+.process-review{min-height:44px;white-space:normal;overflow-wrap:anywhere}.inspector pre{overflow-wrap:anywhere;max-width:100%}

@@ -12,7 +12,7 @@ function tab(name) {
   for (const panel of document.querySelectorAll('.panel')) panel.hidden = panel.id !== name;
 }
 function controls(disabled) {
-  for (const button of document.querySelectorAll('form button,#demo,#backup,#restore,#exist,#curriculum,.reward button,.revisit,.record button')) button.disabled = disabled;
+  for (const button of document.querySelectorAll('form button,#demo,#backup,#exportHistory,#restore,#exist,#curriculum,.reward button,.revisit,.record button,.process-review')) button.disabled = disabled;
   $('online').disabled = disabled;
   $('teacher').disabled = disabled;
 }
@@ -136,7 +136,20 @@ function history() {
       }
       inspector.append(detail);
     }
-    inspector.append(revisit); article.append(inspector); $('history').append(article);
+    const events=project.store.traces({episode:episode.id,limit:60});
+    if(events.length){const trace=node('details');trace.append(node('summary','Decision trace · '+events.length+' recent events'));
+      trace.append(node('p','Actual runtime choices and evidence. Full history, including withdrawn knowledge, is available in the export.'));
+      for(const event of events){const detail=node('details');detail.append(node('summary','#'+event.sequence+' · '+event.kind.replaceAll('.',' · ')),node('pre',JSON.stringify(event.detail,null,2)));trace.append(detail);}
+      inspector.append(trace);
+    }
+    const reviews=project.store.records('LearningReview').filter(r=>field(r.expression,'episode')===episode.id);
+    for(const review of reviews){const detail=node('details');detail.append(node('summary','Learning process review'),node('p',field(review.expression,'reason')));
+      for(const diagnosis of project.store.records('LearningDiagnosis').filter(r=>field(r.expression,'hypothesis')===field(review.expression,'hypothesis')))detail.append(node('p','Event #'+field(diagnosis.expression,'eventSequence')+': '+field(diagnosis.expression,'problem')),node('p','Suggestion: '+field(diagnosis.expression,'suggestion')));
+      inspector.append(detail);
+    }
+    const review=node('button','Review this learning process with Gemini','process-review');
+    review.addEventListener('click',()=>act(async()=>{const result=await project.reviewLearning(episode.id);notice(result.changed?'Checked learning retained; the original request was retried.':result.error??result.clarification??'Review retained. No new concepts passed installation.');},{message:'Reviewing the recorded choices and evidence…'}));
+    inspector.append(review,revisit); article.append(inspector); $('history').append(article);
   }
 }
 function concepts() {
@@ -246,7 +259,8 @@ $('exist').addEventListener('click', () => act(async () => {
   $('workResult').replaceChildren(node('pre', `${work.attempts.length} investigations · ${work.revisions.length} revisited observations\n\n` + work.attempts.map(j => j.query + ': ' + j.status + '\n' + j.detail).join('\n\n')));
   notice('Completed a bounded learning cycle. New readings are in your notebook.');
 }, { message: 'Investigating and revisiting unresolved observations…' }));
-$('backup').addEventListener('click', () => { if (!project || busy) return; download(project.store.snapshot(), 'napkin-next-knowledge.sqlite', 'application/vnd.sqlite3'); notice('Backup downloaded. It contains knowledge, observations, feedback, and pending work.'); });
+$('exportHistory').addEventListener('click',()=>{if(!project||busy)return;download(JSON.stringify(project.store.exportLearningHistory(),null,2),'pocket-learning-history.json','application/json');notice('History exported: decisions, reviews, evidence, inactive knowledge and learning jobs.');});
+$('backup').addEventListener('click', () => { if (!project || busy) return; download(project.store.snapshot(), 'pocket-notebook.sqlite', 'application/vnd.sqlite3'); notice('Backup downloaded. It contains knowledge, observations, feedback, and pending work.'); });
 $('restore').addEventListener('click', () => $('restoreFile').click());
 $('restoreFile').addEventListener('change', event => {
   const file = event.target.files[0]; if (!file) return;

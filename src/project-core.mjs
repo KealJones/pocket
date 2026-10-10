@@ -78,6 +78,13 @@ export class ProjectCore {
         return call('BackgroundWork', [], { attempts: term('List', ...work.attempts.map(j => call('LearningAttempt', [j.query], { status: j.status }))), revisions: term('List', ...work.revisions.map(r => r.result)) });
       }
     };
+    // Collect actual capability invocations across nested evaluations. Preserve
+    // synchronous capability behavior used by notation readers.
+    for(const [name,operation]of Object.entries(capabilities))capabilities[name]=(...args)=>{
+      const record=(outcome,error=null)=>{if(this.executionTrace)this.executionTrace.push({expression:term('Native',name,...args),outcome,capability:name,error});};
+      try{const value=operation(...args);if(value&&typeof value.then==='function')return value.then(result=>{record('capability');return result;},error=>{record('capability-failed',error.message);throw error;});record('capability');return value;}
+      catch(error){record('capability-failed',error.message);throw error;}
+    };
     this.evaluator = new Evaluator(this.store, capabilities);
   }
   boot() {
@@ -176,6 +183,29 @@ export class ProjectCore {
     }
     return {...candidate,meaning,id:digest(candidate.rule+'|'+format(meaning)),supports:[...new Set([...candidate.supports,...supports])]};
   }
+  trace(run,episode,kind,detail){return this.store.appendTrace({run,episode,kind,detail});}
+  traceAnalysis(run,episode,kind,analysis){
+    this.trace(run,episode,kind,{graphVersion:analysis.graphVersion,exhausted:analysis.exhausted,candidateCount:analysis.candidates.length,
+      candidates:analysis.candidates.slice(0,8).map(c=>({id:c.id,meaning:format(c.meaning).slice(0,2000),rule:c.rule,score:c.score,expectation:c.expectation,holes:c.holes.slice(0,16).map(h=>format(h).slice(0,200)),supports:c.supports.slice(0,32),bindings:Object.fromEntries(Object.entries(c.bindings??{}).slice(0,8).map(([key,value])=>[key,format(value).slice(0,600)]))})),truncated:analysis.candidates.length>8});
+  }
+  async reviewLearning(episodeId){
+    if(!this.online||!this.modelLearner?.enabled)throw new Error('Enable online learning and optional Gemini help to review this process.');
+    const episode=this.store.record(episodeId);if(!episode?.active||episode.expression.head!=='Episode')throw new Error('Expected an active conversation observation');
+    const profile=field(episode.expression,'profile',''),input=capture(values(values(episode.expression)[0])[0]);
+    let features=values(field(episode.expression,'context',term('Context')));
+    for(const clarification of this.store.records('Clarification').filter(r=>field(r.expression,'target')===episodeId).sort((a,b)=>field(a.expression,'sequence',0)-field(b.expression,'sequence',0)))
+      for(const hint of values(field(clarification.expression,'context',term('Context'))))features=[...features.filter(c=>!isTerm(c)||!isTerm(hint)||c.head!==hint.head||field(c,'name')!==field(hint,'name')),hint];
+    const context=term('Context',...features);
+    const replyRecord=this.store.records('Reply').filter(r=>field(r.expression,'episode')===episodeId).sort((a,b)=>field(b.expression,'sequence',0)-field(a.expression,'sequence',0))[0];
+    const assessmentRecord=replyRecord&&this.store.records('AnswerAssessment').find(r=>field(r.expression,'reply')===replyRecord.id);
+    const assessment=assessmentRecord?{id:assessmentRecord.id,expression:assessmentRecord.expression}:null;
+    const analysis=await this.analyze(input,{profile,context}),run='review-'+digest(episodeId+'|'+this.store.traces({limit:1}).at(-1)?.sequence+'|'+Date.now());
+    this.trace(run,episodeId,'review.requested',{reason:'User requested diagnosis of the retained learning process',reply:replyRecord?.id??null});
+    const reviewed=await this.modelLearner.assist({input,analysis,episode:episodeId,profile,context,phase:'process-review',assessment,reply:values(replyRecord?.expression)[0]??null,traceRun:run});
+    const retry=reviewed.changed?await this.resume(episodeId,{learn:false}):null;
+    this.trace(run,episodeId,'review.completed',{changed:reviewed.changed,need:reviewed.need??null,error:reviewed.error??null,retry:retry?.readingId??null});
+    return {...reviewed,retry};
+  }
   async turn(text, { learn = this.online, profile = this.profile, context = term('Context'), contextSupports=[], episode, assisted = true } = {}) {
     await this.prepare();
     if(!episode){
@@ -187,7 +217,11 @@ export class ProjectCore {
     }
     const input = capture(text);
     const episodeId = episode ?? this.store.put(call('Episode', [input.expression], { profile, context, sequence: this.sequence() }), { source: 'user:episode' });
+    const traceRun='run-'+digest(episodeId+'|'+this.store.traces({limit:1}).at(-1)?.sequence+'|'+Date.now());
+    this.trace(traceRun,episodeId,'request.started',{text,profile,context:format(context),learn,teacherEnabled:Boolean(this.modelLearner?.enabled),resumed:Boolean(episode)});
+    try {
     let analysis = await this.analyze(input, { profile, context });
+    this.traceAnalysis(traceRun,episodeId,'interpretation.initial',analysis);
     const queueGaps = () => {
       const covered = new Set([...analysis.edges, ...analysis.candidates.flatMap(c => c.consumed)].flatMap(edge => Array.from({ length: edge.end - edge.start }, (_, i) => edge.start + i)));
       for (let i = 0; i < analysis.units.length; i++) {
@@ -200,14 +234,14 @@ export class ProjectCore {
     queueGaps();
     let assistance;
     const needsAcquisition=!analysis.candidates.length||analysis.candidates.some(c=>c.holes.length)||analysis.exhausted;
-    const learned=await this.learner.request(input,{profile,context,contextSupports,acquire:learn&&needsAcquisition,episode:episodeId});
+    const learned=await this.learner.request(input,{profile,context,contextSupports,acquire:learn&&needsAcquisition,episode:episodeId,traceRun});
     analysis=learned.analysis;
     const attempts=learned.attempts;
     // Independent acquisition, frame learning, decoding and implementation
     // checks always get first use of this request. A fallback research reading
     // must also run its own source plan before asking the optional teacher.
     if(learn && assisted && this.modelLearner && !this.learner.best(analysis)){
-      assistance=await this.modelLearner.assist({input,analysis,episode:episodeId,profile,context});
+      assistance=await this.modelLearner.assist({input,analysis,episode:episodeId,profile,context,traceRun});
       if(assistance.changed)analysis=await this.analyze(input,{profile,context});
     }
     if (analysis.graphVersion !== this.store.version) { analysis = await this.analyze(input, { profile, context }); queueGaps(); }
@@ -216,6 +250,8 @@ export class ProjectCore {
     // Budget exhaustion prevents committing even if the explored prefix has one winner.
     const status = !best || best.holes.length || analysis.exhausted ? 'learning' : next && best.score - next.score < margin ? 'ambiguous' : 'resolved';
     const result = status === 'resolved' ? term('Resolved', best.meaning) : status === 'ambiguous' ? term('Ambiguous', term('List', ...analysis.candidates.map(c => this.candidateExpression(c)))) : term('Learning', term('List', ...this.store.agenda().filter(j => j.query === text || input.tokens.some(t => t.raw === j.query)).map(j => call('Task', [j.query], { kind: j.kind, status: j.status }))));
+    this.traceAnalysis(traceRun,episodeId,'interpretation.final',analysis);
+    this.trace(traceRun,episodeId,'decision.selected',{status,meaning:status==='resolved'?format(best.meaning):null,margin:next&&best?best.score-next.score:null,requiredMargin:margin,reason:analysis.exhausted?'Search budget exhausted':!best?'No complete reading':best.holes.length?'Required roles remain open':status==='ambiguous'?'Candidate separation is below the margin':'Complete reading exceeds the selection margin',policySupports:this.store.parts('InterpretationPolicy').map(p=>p.support)});
     const supports = [...new Set([episodeId,...contextSupports, ...this.store.parts('InterpretationPolicy').map(p => p.support), ...analysis.candidates.flatMap(c => c.supports)])];
     const readingId = this.store.put(call('Reading', [result], { episode: episodeId, sequence: this.sequence(), graphVersion: analysis.graphVersion, readings: term('List', ...analysis.candidates.map(c => this.candidateExpression(c))) }), { source: 'derived:interpretation', supports });
     if(status==='resolved'&&isTerm(best.meaning)&&this.store.isA(best.meaning.head,'Assertion')){
@@ -254,19 +290,20 @@ export class ProjectCore {
     }
     if (this.store.parts('Respond', 'Realization').length) {
       this.responseProfile=profile;
-      this.responseEvidence=[];
+      this.responseEvidence=[];this.executionTrace=[];
       const run = retry?{value:retry.reply,trace:[]}:await this.evaluator.evaluate(term('Respond', result)); reply = run.value;
       if(retry){reply=call(reply.head,values(reply),Object.fromEntries([...reply.args.filter(a=>a.name!==undefined).map(a=>[a.name,a.value]),['clarifiedEpisode',field(this.store.record(clarification).expression,'target')],...(retry.status==='resolved'?[]:[['pending',true]])]));this.responseEvidence.push(clarification,retry.readingId,retry.replyId);}
+      this.trace(traceRun,episodeId,'execution.completed',{reply:format(reply).slice(0,6000),steps:run.trace.length,capabilities:(this.executionTrace??[]).slice(-64).map(t=>({expression:format(t.expression).slice(0,1200),outcome:t.outcome,capability:t.capability,error:t.error})),truncated:run.trace.length>64||(this.executionTrace?.length??0)>64,trace:run.trace.slice(-64).map(t=>({expression:format(t.expression).slice(0,1200),outcome:t.outcome,support:t.support??null,supports:t.supports??[],capability:t.capability??null})),evidence:[...new Set(this.responseEvidence)]});
       const executionSupports=status==='resolved' && isTerm(best.meaning) ? [...this.store.parts(best.meaning.head,'ValidatedProgram'),...this.store.parts(best.meaning.head,'ValidatedRealization')].filter(p=>match(values(p.expression)[0],best.meaning,new Map())).map(p=>p.support) : [];
       replyId = this.store.put(call('Reply', [reply], { episode: episodeId, reading: readingId, sources:term('List',...new Set(this.responseEvidence)),sequence: this.sequence() }),
         { source: 'derived:response', supports: [...new Set([readingId, ...executionSupports, ...this.responseEvidence, ...(field(reply,'evidence') ? [field(reply,'evidence')] : []), ...run.trace.flatMap(t => t.support ? [t.support] : t.supports ?? [])])] });
-      this.responseEvidence=undefined;
+      this.responseEvidence=undefined;this.executionTrace=undefined;
       this.responseProfile=undefined;
     }
     let assessment=await assessAnswer(this,{episode:episodeId,reading:readingId,reply,replyId,analysis,status});
     if(learn && assisted && this.modelLearner && !assistance && (field(reply,'pending',false)||assessment.review)) {
-      const evidence=await this.modelLearner.assist({input,analysis,episode:episodeId,profile,context,phase:'evidence',assessment,reply});
-      if(evidence.changed)return this.turn(text,{learn:false,profile,context,contextSupports,episode:episodeId,assisted:false});
+      const evidence=await this.modelLearner.assist({input,analysis,episode:episodeId,profile,context,phase:'evidence',assessment,reply,traceRun});
+      if(evidence.changed){this.trace(traceRun,episodeId,'request.retry',{reason:'Checked new learning retained; retrying the same observation',need:evidence.need});return this.turn(text,{learn:false,profile,context,contextSupports,episode:episodeId,assisted:false});}
       assistance=evidence.clarification?evidence:assistance;
     }
     if(assistance?.clarification){
@@ -277,7 +314,9 @@ export class ProjectCore {
     if (status === 'resolved') {
       for (const job of this.store.agenda().filter(j => j.query === text && ['composition', 'interpretation'].includes(j.kind))) this.store.updateJob(job.id, 'done', 'Resolved by supported evidence');
     }
-    return { episodeId, readingId, reply, replyId, assessment, input, status:retry?.status??(field(reply,'pending',false)?'learning':status), result, spoken, candidates: analysis.candidates, attempts:[...attempts,...(retry?.attempts??[])],clarification, exhausted: analysis.exhausted };
+    this.trace(traceRun,episodeId,'request.completed',{reading:readingId,reply:replyId,assessment:assessment.id,score:assessment.score,status:retry?.status??(field(reply,'pending',false)?'learning':status),reasons:assessment.reasons});
+    return { traceRun, episodeId, readingId, reply, replyId, assessment, input, status:retry?.status??(field(reply,'pending',false)?'learning':status), result, spoken, candidates: analysis.candidates, attempts:[...attempts,...(retry?.attempts??[])],clarification, exhausted: analysis.exhausted };
+    }catch(error){this.executionTrace=undefined;this.responseEvidence=undefined;this.responseProfile=undefined;this.trace(traceRun,episodeId,'request.failed',{message:error.message,reason:'The request stopped before completion; partial learning and trace remain'});throw error;}
   }
   async resume(episodeId, options = {}) {
     const episode = this.store.record(episodeId);

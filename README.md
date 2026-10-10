@@ -273,3 +273,15 @@ evidence** to see needs, source attempts, proposals and checks. You can withdraw
 learned proposals and retain a correction. Checks are consistency evidence, not a
 promise that a model's interpretation is correct. The notebook and its learned
 behavior persist in the existing browser backup format.
+
+### Inspect and export the learning process
+
+Open a reply's inspector to see **Decision trace**: recorded candidates, choices,
+evidence, executed capabilities and outcomes. **Review this learning process with
+Gemini** asks the optional teacher for diagnoses and reusable concept improvements;
+checked improvements are retained and the original request is retried.
+
+Notebook settings offer **Learning history** (readable JSON, including withdrawn
+knowledge and review history) and **SQLite backup** (the complete restorable
+notebook). Existing browser notebooks migrate automatically. CLI users can export
+with `:history("learning-history.json")`.

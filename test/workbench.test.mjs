@@ -55,6 +55,8 @@ test('workbench controls teach real concepts and retain exact pieces, rewards, a
     $('message').value='what is 5*4?';submit('talkForm');await settled();
     assert.equal([...$('history').querySelectorAll('.assistant-words')].at(-1).textContent,'20');
     assert.match([...$('history').querySelectorAll('.inspector')].at(-1).textContent,/Learning during this request/);
+    assert.match([...$('history').querySelectorAll('.inspector')].at(-1).textContent,/Decision trace/);
+    assert.ok($('exportHistory'));assert.ok($('history').querySelector('.process-review'));
     $('online').checked=true;$('online').dispatchEvent(new window.Event('change'));
     $('message').value='What is the capital of hi?';submit('talkForm');await settled();
     assert.match([...$('history').querySelectorAll('.assistant-words')].at(-1).textContent,/Hawaii · capital: Honolulu/);
@@ -75,6 +77,7 @@ test('workbench controls teach real concepts and retain exact pieces, rewards, a
     try {
       assert.equal((await restored.turn('Emmy returns the cookie')).status, 'resolved');
       assert.equal(restored.store.records('Feedback').length, 1);
+      assert.ok(restored.store.exportLearningHistory().events.some(e=>e.kind==='decision.selected'));
       assert.equal((await restored.turn('blorple')).spoken, 'Blorple()');
       assert.equal((await restored.turn('what is 2 plus 2?')).reply.args.find(a=>a.name==='answer').value,4);
       assert.equal((await restored.turn('what is 3*3?')).reply.args.find(a=>a.name==='answer').value,9);

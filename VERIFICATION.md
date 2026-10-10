@@ -249,3 +249,22 @@ teacher use, and separately retained critiques without invented facts or reward.
 Final updated suite: **140 tests passed**; `npm run check` validated **153**
 concept declarations and the demo passed. Visual browser QA remains
 unavailable; shared browser SQLite and DOM interaction coverage are retained.
+
+## 0.10 persistent trace and process review (2026-10-10)
+
+- The 146-test suite passed, including retained decision/capability traces,
+  SQLite reopen, withdrawal with inactive-history export, old browser database
+  migration, explicit reviewed learning that transfers offline, diagnosis evidence
+  validation, clarified context in reviews, and unexpected execution failures.
+- Existing browser DOM coverage now checks decision traces, review controls and
+  the learning-history export control; restored browser backups contain trace rows.
+- Live Gemini review of a fresh `what is 5*4?` request returned an adequate-answer
+  review without unnecessary concept installation. Its review and 14 runtime events
+  were retained. Transfer and error-repair review tests use provider fixtures.
+- Declaration check: 153 concepts; demo passed. Final packaging repeats checks
+  after the last withdrawal-history adjustment, then builds the hosted app.
+- JSON exports include all trace events, active/inactive records and all jobs.
+  SQLite backups remain the supported restore format. Automatic schema migration
+  does not erase knowledge. UI previews are bounded; exports preserve full history.
+- Visual mobile browser QA remains unavailable in this managed environment.
+  Existing responsive layouts, wrapping buttons and 44px controls are retained.

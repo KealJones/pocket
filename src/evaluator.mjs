@@ -25,7 +25,9 @@ export class Evaluator {
       const operation = args[0];
       if (typeof operation !== 'string' || !Object.hasOwn(this.capabilities, operation)) throw new Error('Unavailable capability: ' + operation);
       const resolved = []; for (const arg of args.slice(1)) resolved.push(await recur(arg));
-      return this.capabilities[operation](...resolved);
+      const result=await this.capabilities[operation](...resolved);
+      state.trace.push({expression,outcome:'capability',capability:operation});
+      return result;
     }
     if (expression.head === 'Let') {
       if (!isVariable(args[0]) || args.length !== 3) throw new Error('Let requires a variable, value, and body');

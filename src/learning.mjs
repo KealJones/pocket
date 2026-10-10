@@ -153,9 +153,10 @@ export class Learner {
       }
     }
   }
-  async request(input,{profile,context,contextSupports=[],acquire=true,episode}){
+  async request(input,{profile,context,contextSupports=[],acquire=true,episode,traceRun}){
     const p=this.project,steps=[],attempted=new Set(),started=Date.now();
     const maximum=p.policy('RequestLearningPolicy','MaximumPasses'),jobs=p.policy('RequestLearningPolicy','MaximumJobs'),milliseconds=p.policy('RequestLearningPolicy','MaximumMilliseconds');
+    if(traceRun)p.trace(traceRun,episode,'learning.independent.started',{acquire,maximumPasses:maximum,maximumJobs:jobs,maximumMilliseconds:milliseconds,reason:'Use retained language, evidence, source examples and implementation lessons before optional teaching'});
     await this.revisitEvidence({budget:p.policy('EvidenceReadingPolicy','RevisitBudget'),profile});
     let analysis=await p.analyze(input,{profile,context});
     // Needs are part of Pocket's own worklist, even with no teacher configured.
@@ -182,6 +183,7 @@ export class Learner {
       current.sort((a,b)=>(a.kind==='composition'?0:1)-(b.kind==='composition'?0:1));
       const job=current.find(j=>!attempted.has(j.id));if(!job)break;
       attempted.add(job.id);
+      if(traceRun)p.trace(traceRun,episode,'learning.job.selected',{job:job.id,kind:job.kind,query:job.query,reason:job.kind==='composition'?'Seek independent example outcomes first':'Acquire a currently uncovered lexical sense',alternatives:current.filter(j=>!attempted.has(j.id)).slice(0,8).map(j=>({id:j.id,kind:j.kind,query:j.query}))});
       steps.push(...await p.tick({budget:1,jobs:[job],timeout:Math.max(1,milliseconds-(Date.now()-started))}));
       analysis=await p.analyze(input,{profile,context});
     }
@@ -190,6 +192,7 @@ export class Learner {
     analysis=await p.analyze(input,{profile,context});
     const chosen=this.best(analysis);if(chosen)await this.realize(chosen.meaning,steps);
     const run=this.store.put(call('LearningRun',[input.expression],{episode,sequence:p.sequence(),steps:term('List',...steps.map(s=>call('LearningStep',[s.query],{kind:s.kind,status:s.status,detail:s.detail??'',evidence:s.evidence??null}))),elapsed:Date.now()-started}),{source:'derived:learning-run',supports:[episode,...steps.flatMap(s=>s.evidence?[s.evidence]:[]),...this.store.parts('RequestLearningPolicy').map(p=>p.support)]});
+    if(traceRun)p.trace(traceRun,episode,'learning.independent.completed',{run,need,chosen:chosen?format(chosen.meaning):null,elapsed:Date.now()-started,steps:steps.map(s=>({kind:s.kind,query:s.query,status:s.status,detail:s.detail??'',evidence:s.evidence??null}))});
     if(need)this.store.put(call('NeedStatus',[],{need,status:chosen?'interpreted':'open',hypotheses:term('List',...analysis.candidates.map(c=>p.candidateExpression(c))),sequence:p.sequence()}),{source:'derived:need-status',supports:[need,run,...analysis.candidates.flatMap(c=>c.supports)]});
     return {analysis,attempts:steps};
   }

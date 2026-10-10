@@ -37,6 +37,7 @@ Commands use the same .ncon notation as knowledge and behavior:
   :agenda()                               inspect unresolved work
   :read("https://example.org/page")        save a page as unexecuted evidence
   :retract("support-id")                  invalidate it and dependent readings
+  :history("learning-history.json")        export decisions, reviews and inactive knowledge
   :export("knowledge.ncon")               export active records with provenance
   :import("knowledge.ncon")               restore a trusted export and its supports
   :eval(Add(5, 2))                         intentionally evaluate an expression
@@ -68,6 +69,7 @@ async function execute(line) {
     case 'agenda': print(project.store.agenda()); break;
     case 'read': print(await project.readPage(a[0])); break;
     case 'retract': print({ invalidated: project.store.retract(a[0]) }); break;
+    case 'history': writeFileSync(a[0],JSON.stringify(project.store.exportLearningHistory(),null,2)); print('Saved '+a[0]);break;
     case 'export': writeFileSync(a[0], project.store.export()); print('Saved ' + a[0]); break;
     case 'import': print({ imported: project.importRecords(readFileSync(a[0], 'utf8')) }); break;
     case 'eval': print(await project.evaluator.evaluate(a[0])); break;

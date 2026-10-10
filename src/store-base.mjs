@@ -13,8 +13,29 @@ export class StoreBase {
       CREATE TABLE IF NOT EXISTS surfaces(key TEXT NOT NULL, target TEXT NOT NULL, profile TEXT NOT NULL, record TEXT NOT NULL, weight REAL NOT NULL, PRIMARY KEY(key,target,profile,record));
       CREATE INDEX IF NOT EXISTS surfaces_key ON surfaces(key,profile);
       CREATE TABLE IF NOT EXISTS jobs(id TEXT PRIMARY KEY, query TEXT NOT NULL, kind TEXT NOT NULL, status TEXT NOT NULL, attempts INTEGER NOT NULL DEFAULT 0, detail TEXT NOT NULL DEFAULT '', updated INTEGER NOT NULL);
-      PRAGMA user_version=1;`);
+      CREATE TABLE IF NOT EXISTS trace_events(sequence INTEGER PRIMARY KEY AUTOINCREMENT,run TEXT NOT NULL,episode TEXT NOT NULL,kind TEXT NOT NULL,detail TEXT NOT NULL,created INTEGER NOT NULL);
+      CREATE INDEX IF NOT EXISTS trace_events_episode ON trace_events(episode,sequence);
+      CREATE INDEX IF NOT EXISTS trace_events_run ON trace_events(run,sequence);
+      PRAGMA user_version=2;`);
     this.version = 0; this.cacheVersion = -1; this.units = new Map();
+  }
+  appendTrace({ run, episode, kind, detail = {} }) {
+    if (![run,episode,kind].every(v=>typeof v==='string'&&v.length>0) || kind.length>80) throw new Error('Invalid trace identity');
+    let encoded=JSON.stringify(detail);
+    if(encoded.length>262144)encoded=JSON.stringify({truncated:true,originalCharacters:encoded.length,preview:encoded.slice(0,120000),reason:'Trace display budget; linked notebook records retain original evidence'});
+    this.db.prepare('INSERT INTO trace_events(run,episode,kind,detail,created) VALUES(?,?,?,?,?)').run(run,episode,kind,encoded,Date.now());
+    return Number(this.db.prepare('SELECT last_insert_rowid() AS sequence').get().sequence);
+  }
+  traces({ episode, run, limit=200, after=0 } = {}) {
+    if(!Number.isInteger(limit)||limit<1||limit>10000||!Number.isInteger(after)||after<0)throw new Error('Invalid trace query budget');
+    const where=['sequence>?'],args=[after];
+    if(episode){where.push('episode=?');args.push(episode);}if(run){where.push('run=?');args.push(run);}
+    return this.db.prepare('SELECT * FROM trace_events WHERE '+where.join(' AND ')+' ORDER BY sequence DESC LIMIT ?').all(...args,limit).reverse().map(r=>({...r,detail:JSON.parse(r.detail)}));
+  }
+  exportLearningHistory() {
+    const records=this.db.prepare('SELECT * FROM records ORDER BY created,id').all().map(r=>({...r,active:Boolean(r.active),supports:this.db.prepare('SELECT support FROM dependencies WHERE record=? ORDER BY support').all(r.id).map(s=>s.support)}));
+    const events=this.db.prepare('SELECT * FROM trace_events ORDER BY sequence').all().map(r=>({...r,detail:JSON.parse(r.detail)}));
+    return {format:'pocket-learning-history',version:1,exportedAt:new Date().toISOString(),notes:'Runtime decisions and evidence. Scores are estimates; model diagnoses are suggestions. Inactive records and their history are retained.',records,events,jobs:this.db.prepare('SELECT * FROM jobs ORDER BY updated,id').all()};
   }
   transaction(fn) { this.db.exec('BEGIN IMMEDIATE'); try { const out = fn(); this.db.exec('COMMIT'); return out; } catch (error) { this.db.exec('ROLLBACK'); this.version++; throw error; } }
   put(expression, { source = 'user', supports = [] } = {}) {
@@ -71,7 +92,12 @@ export class StoreBase {
         this.db.prepare('UPDATE records SET active=0 WHERE id=?').run(current); removed.push(current);
         queue.push(...this.db.prepare('SELECT record FROM dependencies WHERE support=? ORDER BY record').all(current).map(r => r.record));
       }
-      this.version++; return removed;
+      this.version++;
+      if(removed.length){const recent=this.db.prepare('SELECT run,episode FROM trace_events ORDER BY sequence DESC LIMIT 1').get();
+        const affected=new Set(removed.map(record=>field(this.record(record)?.expression,'episode')).filter(Boolean));
+        if(!affected.size)affected.add(recent?.episode??'notebook');
+        for(const episode of affected)this.appendTrace({run:'withdraw-'+id,episode,kind:'knowledge.withdrawn',detail:{target:id,removed,affectedEpisodes:[...affected],reason:'Explicit retraction; original observations and audit events remain'}});}
+      return removed;
     });
   }
   enqueue(query, kind = 'lexical') {
