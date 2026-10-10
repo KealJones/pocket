@@ -8,7 +8,10 @@ It does not install model output as facts, realizations, or language rules.
 In Cloudflare: Workers & Pages → pocket-gemini → Settings → Variables and Secrets → Add.
 Choose **Secret** for both values, then deploy/save the changes:
 
-* `GEMINI_API_KEY`: your Google AI Studio Gemini API key.
+* `GEMINI_API_KEY`: your Google AI Studio Gemini API key. This deployment uses a
+  Secrets Store binding to the existing `gemini-api-key` secret with Workers scope;
+  it does not need to be copied into the Worker secrets section. The Worker resolves
+  the binding after caller authentication, never through a public read-secret endpoint.
 * `PROXY_AUTH_TOKEN`: a unique random password of at least 32 characters (use your password manager).
 
 Never put either secret in GitHub, `.ncon`, frontend builds, prompts, URLs, or logs.
@@ -22,7 +25,8 @@ Open the deployed Worker root URL for a mobile-friendly connection test. Enter
 the proxy token, not the Gemini key. The page holds it in memory and does not
 save it to browser storage. Test prompts are transmitted to Google.
 
-`GET /health` reports whether the secrets are present (it does not validate the key).
+`GET /health` reports key binding presence and proxy-password configuration (it
+does not fetch or validate a Secrets Store value or make a Gemini request).
 `POST /v1/generate` accepts Gemini `contents` with text-only parts, optional
 `systemInstruction`, and limited `generationConfig` fields. Authenticate with
 `Authorization: Bearer <PROXY_AUTH_TOKEN>`. It returns the Gemini JSON response.

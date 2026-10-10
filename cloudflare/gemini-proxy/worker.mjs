@@ -65,8 +65,10 @@ export function createProxy(fetcher = fetch) {
     if (origin && !allowed.has(origin)) return json({ error: 'Origin is not allowed' }, 403);
     const cors = origin ? { 'access-control-allow-origin': origin, 'vary': 'Origin' } : {};
     if (request.method === 'OPTIONS' && url.pathname === '/v1/generate') return new Response(null, { status: 204, headers: { ...headers, ...cors, 'access-control-allow-methods': 'POST', 'access-control-allow-headers': 'authorization,content-type', 'access-control-max-age': '600' } });
-    const configured = typeof env.GEMINI_API_KEY === 'string' && !!env.GEMINI_API_KEY.trim() && typeof env.PROXY_AUTH_TOKEN === 'string' && env.PROXY_AUTH_TOKEN.length >= 32;
-    if (request.method === 'GET' && url.pathname === '/health') return json({ service: 'pocket-gemini', configured, model: env.GEMINI_MODEL ?? 'gemini-3.8-flash' });
+    const keyBound = typeof env.GEMINI_API_KEY === 'string' ? !!env.GEMINI_API_KEY.trim() : typeof env.GEMINI_API_KEY?.get === 'function';
+    const authConfigured = typeof env.PROXY_AUTH_TOKEN === 'string' && env.PROXY_AUTH_TOKEN.length >= 32;
+    const configured = keyBound && authConfigured;
+    if (request.method === 'GET' && url.pathname === '/health') return json({ service: 'pocket-gemini', configured, keyBound, authConfigured, model: env.GEMINI_MODEL ?? 'gemini-3.8-flash' });
     if (request.method === 'GET' && url.pathname === '/') return new Response(page, { headers: { ...headers, 'content-type': 'text/html; charset=utf-8', 'content-security-policy': "default-src 'none'; script-src 'self'; style-src 'unsafe-inline'; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'" } });
     if (request.method === 'GET' && url.pathname === '/client.js') return new Response(client, { headers: { ...headers, 'content-type': 'text/javascript; charset=utf-8' } });
     if (url.pathname !== '/v1/generate') return json({ error: 'Not found' }, 404, cors);
@@ -82,7 +84,10 @@ export function createProxy(fetcher = fetch) {
       let raw; try { raw = JSON.parse(await boundedText(request.body, MAX_REQUEST)); } catch (error) { if (error instanceof HTTPError) throw error; throw new HTTPError(400, 'Invalid JSON'); }
       const body = payload(raw), model = env.GEMINI_MODEL ?? 'gemini-3.8-flash';
       if (!/^gemini-[a-z0-9.-]+$/.test(model)) throw new HTTPError(503, 'Invalid server model setting');
-      const response = await fetcher('https://generativelanguage.googleapis.com/v1beta/models/' + model + ':generateContent', { method: 'POST', redirect: 'error', signal: controller.signal, headers: { 'content-type': 'application/json', 'x-goog-api-key': env.GEMINI_API_KEY }, body: JSON.stringify(body) });
+      // Resolve Secrets Store only inside the Worker after authentication.
+      let apiKey; try { apiKey = typeof env.GEMINI_API_KEY === 'string' ? env.GEMINI_API_KEY : await env.GEMINI_API_KEY.get(); } catch { throw new HTTPError(503, 'Gemini secret is unavailable'); }
+      if (typeof apiKey !== 'string' || !apiKey.trim()) throw new HTTPError(503, 'Gemini secret is unavailable');
+      const response = await fetcher('https://generativelanguage.googleapis.com/v1beta/models/' + model + ':generateContent', { method: 'POST', redirect: 'error', signal: controller.signal, headers: { 'content-type': 'application/json', 'x-goog-api-key': apiKey }, body: JSON.stringify(body) });
       if (!response.ok) {
         await response.body?.cancel();
         // Never reflect upstream errors: they can include credentials or input.

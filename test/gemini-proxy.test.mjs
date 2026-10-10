@@ -61,3 +61,18 @@ test('Gemini proxy serves a phone test page without provider secrets', async () 
   assert.ok(!html.includes(token));
   assert.equal((await (await proxy.fetch(new Request('https://proxy.example/health'), {})).json()).configured, false);
 });
+test('Secrets Store values resolve only after authentication and failures are redacted', async () => {
+  let reads = 0;
+  const bound = { ...env, GEMINI_API_KEY: { get: async () => { reads++; return 'test-only-store-value'; } } };
+  const proxy = createProxy(async (url, options) => { assert.equal(options.headers['x-goog-api-key'], 'test-only-store-value'); return Response.json({ candidates: [] }); });
+  const health = await (await proxy.fetch(new Request('https://proxy.example/health'), bound)).json();
+  assert.equal(health.keyBound, true);
+  assert.equal(reads, 0);
+  assert.equal((await proxy.fetch(request(body, { authorization: 'Bearer wrong' }), bound)).status, 401);
+  assert.equal(reads, 0);
+  assert.equal((await proxy.fetch(request(), bound)).status, 200);
+  assert.equal(reads, 1);
+  const failed = await proxy.fetch(request(), { ...env, GEMINI_API_KEY: { get: async () => { throw Error('sensitive test value'); } } });
+  assert.equal(failed.status, 503);
+  assert.ok(!(await failed.text()).includes('sensitive test value'));
+});
