@@ -1,48 +1,27 @@
 # Pocket Gemini proxy
 
-An optional authenticated text-generation transport, separate from the concept runtime.
-It does not install model output as facts, realizations, or language rules.
+Public Gemini transport with no login, password, or CAPTCHA, as requested by the
+owner. This is separate from the concept runtime; model output is not automatically
+installed as facts, realizations, or language rules.
 
-## Secrets
+The Worker binds `GEMINI_API_KEY` to Cloudflare Secrets Store's `gemini-api-key`
+with Workers scope. The key stays server-side. No proxy token is required.
 
-In Cloudflare: Workers & Pages → pocket-gemini → Settings → Variables and Secrets → Add.
-Choose **Secret** for both values, then deploy/save the changes:
+Open https://pocket-gemini.kealjones.workers.dev/ to test on a phone. Test prompts
+are transmitted to Google. `GET /health` checks key binding presence without
+reading the key. `POST /v1/generate` accepts Gemini text `contents`, optional
+`systemInstruction`, and limited `generationConfig`, including JSON output.
 
-* `GEMINI_API_KEY`: your Google AI Studio Gemini API key. This deployment uses a
-  Secrets Store binding to the existing `gemini-api-key` secret with Workers scope;
-  it does not need to be copied into the Worker secrets section. The Worker resolves
-  the binding after caller authentication, never through a public read-secret endpoint.
-* `PROXY_AUTH_TOKEN`: a unique random password of at least 32 characters (use your password manager).
+`GEMINI_MODEL` and `ALLOWED_ORIGINS` are server settings. CORS restricts browsers,
+not scripts outside browsers; the endpoint is intentionally public. Anyone can
+use it within the limits. Configure provider quotas to control spending.
 
-Never put either secret in GitHub, `.ncon`, frontend builds, prompts, URLs, or logs.
-The Gemini key remains server-side. A personal client supplies the proxy token in
-an Authorization header; do not embed a shared token in a public frontend bundle.
-Local secret files `.dev.vars` and `.env` are ignored by git.
+Limits: 64 KiB requests, 1 MiB responses, 30-second upstream timeout, one candidate,
+4096 maximum output tokens, 10 calls per minute per Cloudflare location. The rate
+limiter is approximate, not a global spending cap. No tools, arbitrary destinations,
+streaming, or client-selected models. Request bodies and keys are not logged by
+this code; automatic invocation logs are disabled.
 
-## Test and use
-
-Open the deployed Worker root URL for a mobile-friendly connection test. Enter
-the proxy token, not the Gemini key. The page holds it in memory and does not
-save it to browser storage. Test prompts are transmitted to Google.
-
-`GET /health` reports key binding presence and proxy-password configuration (it
-does not fetch or validate a Secrets Store value or make a Gemini request).
-`POST /v1/generate` accepts Gemini `contents` with text-only parts, optional
-`systemInstruction`, and limited `generationConfig` fields. Authenticate with
-`Authorization: Bearer <PROXY_AUTH_TOKEN>`. It returns the Gemini JSON response.
-JSON output can use `responseMimeType: "application/json"` and `responseJsonSchema`.
-
-Model: `GEMINI_MODEL`, configured server-side. Origins: comma-separated
-`ALLOWED_ORIGINS`. CORS does not replace bearer authentication. There are no
-client-selected upstream URLs, tools, files, streaming, or arbitrary model routing.
-
-Limits: 64 KiB request, 1 MiB response, 30-second upstream timeout, one candidate,
-at most 4096 output tokens, 10 authenticated calls per minute per Cloudflare location.
-Cloudflare's rate limiter is approximate and is not a global spending cap; configure
-provider quotas separately. Prompt bodies and credentials are not logged by this code;
-automatic invocation logs are disabled. Cloudflare/Google may still process service
-metadata according to their policies.
-
-The proxy is fail-closed until both secrets and the rate limiter are available.
-`node --test test/gemini-proxy.test.mjs` runs mock transport/security checks.
-After entering real secrets, use the test page to validate an actual Gemini call.
+Never put the Gemini key in GitHub, `.ncon`, browser builds, prompts, or URLs.
+Local `.dev.vars` and `.env` files are ignored. The proxy fails closed without a
+key binding or rate limiter. Mock tests: `node --test test/gemini-proxy.test.mjs`.

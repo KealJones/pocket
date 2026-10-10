@@ -1,14 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createProxy } from '../cloudflare/gemini-proxy/worker.mjs';
-const token = 'test-only-proxy-password-not-a-real-secret';
-const env = { GEMINI_API_KEY: 'test-only-provider-key', PROXY_AUTH_TOKEN: token, GEMINI_MODEL: 'gemini-3.8-flash', ALLOWED_ORIGINS: 'https://kealjones.github.io', REQUEST_LIMITER: { limit: async () => ({ success: true }) } };
+const env = { GEMINI_API_KEY: 'test-only-provider-key', GEMINI_MODEL: 'gemini-3.8-flash', ALLOWED_ORIGINS: 'https://kealjones.github.io', REQUEST_LIMITER: { limit: async () => ({ success: true }) } };
 const body = { contents: [{ role: 'user', parts: [{ text: 'Hello' }] }] };
-const request = (data = body, extra = {}) => new Request('https://proxy.example/v1/generate', { method: 'POST', headers: { 'content-type': 'application/json', authorization: 'Bearer ' + token, ...extra }, body: JSON.stringify(data) });
-test('Gemini proxy fails closed and never calls upstream before authentication', async () => {
+const request = (data = body, extra = {}) => new Request('https://proxy.example/v1/generate', { method: 'POST', headers: { 'content-type': 'application/json', ...extra }, body: JSON.stringify(data) });
+test('Gemini proxy fails closed when key or rate limiter is missing', async () => {
   let calls = 0; const proxy = createProxy(async () => { calls++; });
   assert.equal((await proxy.fetch(request(), {})).status, 503);
-  assert.equal((await proxy.fetch(request(body, { authorization: 'Bearer incorrect' }), env)).status, 401);
   assert.equal((await proxy.fetch(request(), { ...env, REQUEST_LIMITER: undefined })).status, 503);
   assert.equal(calls, 0);
 });
@@ -31,7 +29,7 @@ test('Gemini proxy sends provider key only upstream and returns structured outpu
     assert.equal(url, 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent');
     assert.equal(options.headers['x-goog-api-key'], env.GEMINI_API_KEY);
     assert.equal(options.headers.authorization, undefined);
-    assert.equal(options.redirect, 'error');
+    assert.equal(options.redirect, 'manual');
     const parsed = JSON.parse(options.body);
     assert.equal(parsed.generationConfig.candidateCount, 1);
     assert.equal(parsed.generationConfig.temperature, 0);
@@ -58,17 +56,17 @@ test('Gemini proxy serves a phone test page without provider secrets', async () 
   const html = await result.text();
   assert.ok(html.includes('width=device-width'));
   assert.ok(!html.includes(env.GEMINI_API_KEY));
-  assert.ok(!html.includes(token));
+  assert.ok(!html.includes('type="password"'));
   assert.equal((await (await proxy.fetch(new Request('https://proxy.example/health'), {})).json()).configured, false);
 });
-test('Secrets Store values resolve only after authentication and failures are redacted', async () => {
+test('Secrets Store values resolve only after validation and failures are redacted', async () => {
   let reads = 0;
   const bound = { ...env, GEMINI_API_KEY: { get: async () => { reads++; return 'test-only-store-value'; } } };
   const proxy = createProxy(async (url, options) => { assert.equal(options.headers['x-goog-api-key'], 'test-only-store-value'); return Response.json({ candidates: [] }); });
   const health = await (await proxy.fetch(new Request('https://proxy.example/health'), bound)).json();
   assert.equal(health.keyBound, true);
   assert.equal(reads, 0);
-  assert.equal((await proxy.fetch(request(body, { authorization: 'Bearer wrong' }), bound)).status, 401);
+  assert.equal((await proxy.fetch(request({ ...body, tools: [] }), bound)).status, 400);
   assert.equal(reads, 0);
   assert.equal((await proxy.fetch(request(), bound)).status, 200);
   assert.equal(reads, 1);
