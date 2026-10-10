@@ -259,3 +259,17 @@ property-ID table. Competing exact referents are named for clarification. `No th
 boat` or `I mean the boat` retries the original question with a supported kind hint,
 including after an incorrect completed answer; the original words remain intact.
 The boat/watercraft hint is an authored contextual broadening, not a global synonym.
+
+### Independent first, optional Gemini help
+
+Pocket tries its own concept/source learning before asking a teacher. The notebook
+settings have separate switches for online source acquisition and optional Gemini
+help. Turn Gemini off to test independent learning; turn online access off to test
+retained knowledge. No API key is entered in the browser.
+
+The optional teacher proposes reusable `.ncon` concepts and pure implementations,
+which must pass local checks before installation. Open **Inspect understanding &
+evidence** to see needs, source attempts, proposals and checks. You can withdraw
+learned proposals and retain a correction. Checks are consistency evidence, not a
+promise that a model's interpretation is correct. The notebook and its learned
+behavior persist in the existing browser backup format.

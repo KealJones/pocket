@@ -460,3 +460,88 @@ labels/aliases; quantity values and unit entities come from actual source claims
 Multiple exact referents require clarification before measurements are selected.
 Typed topic research follows the grounded entity's encyclopedia sitelink. A weak
 Wikipedia search preview stays pending and is not cached as an answered question.
+
+## Independent learning and optional proposal teacher (0.9)
+
+Pocket's own request learner runs **before** the optional Gemini teacher. It
+captures input, records explicit `Need` relationships (sense, construction,
+alternatives, missing roles), revisits evidence, learns from source examples,
+acquires senses, binds frames, decodes notation, and checks implementation lessons.
+Its `LearningRun` and `NeedStatus` retain hypotheses and dependencies even when
+Gemini is absent. Research realizations also get their source attempt first.
+Known constructions, source-learnable examples and retained realizations do not
+need Gemini. `online=false` also disables the teacher; the separate UI teacher
+switch leaves independent online source learning enabled.
+
+When a gap remains, `LearnMissing` in `model-learning.ncon` authors the proposal →
+validation/retention sequence. The host supplies HTTP transport, detached graph
+validation, bounded parsing and pure execution checks. The default browser uses
+the public, rate-limited Cloudflare proxy; the provider key never reaches the
+client. The question, up to four recent observations, selected notebook definitions,
+source excerpts and counterexamples are sent to Gemini. Node usage is opt-in with
+`new Project({teacher:{}})`. No dependency on Gemini is introduced into evaluation
+or persisted notebook loading.
+
+A response is a `LearningHypothesis`, not executable authority. It can propose
+new namespaced concepts, surfaces, typed constructions, pure `.ncon` realizations,
+and attributed source readings. Before any installation, a detached overlay checks
+variable bindings, allowed relationships, example interpretation, multiple execution
+checks per implementation, and exact source-quote containment. Reachable helpers
+are inspected too: an untested branch cannot hide an effect. The validator cannot
+replace core concepts, policies, or capabilities. Rejected proposals can receive a
+concrete validation error for one bounded repair attempt. Transport failures retain
+the need without immediate retries. Installations happen atomically after checks.
+
+These are **consistency checks, not independent semantic proof**. Model-generated
+checks can share the model's mistakes. An exact quote proves provenance, not that a
+proposed interpretation is entailed; model-attributed meanings are explicitly tagged.
+The implementation does not claim that model confidence is truth. The learning
+inspector exposes the original proposal and supports withdrawal with a correction.
+`Counterexample` survives withdrawal; dependent concepts/readings/replies do not.
+A renamed copy of the same withdrawn proposal is rejected. This fingerprint is
+syntactic, not a complete proof of semantic equivalence.
+
+After acceptance the original request is interpreted again. New constructions
+can bind different arguments and run without either Gemini or source access.
+Source statements can use the same learned assertion constructions as user input.
+Additional supported source facts may be retained even when unrelated to the
+current question; ambiguous facts remain competing attributed meanings. Responses
+put the bound answer first and retain the supporting statement/citation.
+
+Limits remain explicit: finite concept primitives and compiler support, bounded
+construction search, finite request budgets, source coverage and public proxy rate
+limits. Gemini does not add arbitrary host capabilities, guarantee general language
+comprehension, or remove the need to improve independent induction and source
+adapters. A failed learning request remains reviewable and resumable; it does not
+pretend to have learned a behavior. The UI's revisit action can retry optional
+teaching; the general background agenda remains independently bounded.
+
+## Answer assessment (0.9.1)
+
+Every response retains `AnswerAssessment`: relevance to its selected intent,
+source grounding, execution completion and ambiguity. These are observable
+heuristics, **not calibrated probabilities of correctness**. A bound value, a
+checked realization and retained source relationships improve the estimate;
+missing answer roles, failed actions and competing readings reduce it. A citation
+alone does not establish relevance. Model-proposed interpretations remain labeled
+as such even when their code passes execution checks.
+
+`AnswerRequirement` relationships declare intent-specific obligations without
+English question dispatch. `AnswerQuality` and the review threshold are authored
+in `assessment.ncon`. The UI exposes the components and reasons. Assessment
+records depend on the reading, reply, contract and scoring policy, so withdrawal
+invalidates assessments that relied on withdrawn evidence.
+
+With the optional teacher enabled, an unresolved or low-scoring response can
+request a critique after Pocket's independent attempt. The response and assessment
+join the evidence supplied to the ordinary proposal teacher. `AnswerCritique`
+remains model opinion, separately retained; it does not create factual truth or
+self-reward. Improvements must still pass the normal construction/code/source
+checks and trigger a retry of the original observation. Failed HTTP actions are
+assessed but do not ask Gemini to fix a transport failure.
+
+The runtime handles existing conversational concepts and read-only actions such
+as fetching pages. Checked code examples can become reusable realizations; pure
+learned string procedures can generate templates. General program authoring,
+conversion of arbitrary languages, unrestricted execution and general dialogue
+understanding are not implemented by adding this assessment layer.

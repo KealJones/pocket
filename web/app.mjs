@@ -14,6 +14,7 @@ function tab(name) {
 function controls(disabled) {
   for (const button of document.querySelectorAll('form button,#demo,#backup,#restore,#exist,#curriculum,.reward button,.revisit,.record button')) button.disabled = disabled;
   $('online').disabled = disabled;
+  $('teacher').disabled = disabled;
 }
 function download(bytes, name, type) {
   const url = URL.createObjectURL(new Blob([bytes], { type })), a = node('a'); a.href = url; a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(url), 30000);
@@ -21,7 +22,8 @@ function download(bytes, name, type) {
 async function act(action, { message = 'Working…' } = {}) {
   if (!project || busy) return;
   busy = true; controls(true); notice(message); $('saved').textContent = 'Learning…';
-  project.onProgress=async ({stage}) => {
+  project.onProgress=async ({stage,message}) => {
+    if(stage==='learning'){notice(message??'Checking reusable learning…');await vault.write(project.store.snapshot());return;}
     if(stage!=='retained')return;
     const claims=project.store.records('SourceClaim').length,meanings=project.store.records('AttributedMeaning').length;
     notice('Researching · '+claims+' source statements retained · '+meanings+' passages interpreted');
@@ -67,8 +69,18 @@ function history() {
     const readable=[...urls].filter(url=>!url.includes('/w/api.php'));
     for(const url of (readable.length?readable:[...urls]).slice(0,3)) { const address=new URL(url);const link=node('a','Source: '+address.hostname+decodeURIComponent(address.pathname).slice(0,90),'citation'); link.href=url; link.target='_blank'; link.rel='noopener noreferrer'; article.append(link); }
     const inspector=node('details',undefined,'inspector'); inspector.append(node('summary','Inspect understanding & evidence'),node('span',status,'status '+status));
+    const assessment=project.store.records('AnswerAssessment').filter(r=>field(r.expression,'reply')===response?.id).sort((a,b)=>field(b.expression,'sequence',0)-field(a.expression,'sequence',0))[0];
+    if(assessment){const detail=node('details');detail.append(node('summary','Self-assessment · '+Math.round(field(assessment.expression,'score')*100)+'/100 · estimate'));
+      detail.append(node('p','This is an evidence-strength estimate, not a probability of being correct.'));
+      for(const name of ['relevance','grounding','execution','ambiguity'])detail.append(node('p',name+': '+Math.round(field(assessment.expression,name)*100)+'/100'));
+      for(const reason of values(field(assessment.expression,'reasons')))detail.append(node('p',reason));
+      for(const critique of project.store.records('AnswerCritique').filter(r=>field(r.expression,'assessment')===assessment.id))detail.append(node('p','Optional teacher critique: '+field(critique.expression,'reason')));
+      inspector.append(detail);
+    }
     const learning=project.store.records('LearningRun').filter(r=>field(r.expression,'episode')===episode.id).sort((a,b)=>field(b.expression,'sequence',0)-field(a.expression,'sequence',0))[0];
     if(learning){const steps=values(field(learning.expression,'steps'));const detail=node('details');detail.append(node('summary',steps.length?'Learning during this request · '+steps.length+' steps':'Used retained knowledge'));for(const step of steps)detail.append(node('p',values(step)[0]+' · '+field(step,'status')+'\n'+field(step,'detail'),'learning-step'));inspector.append(detail);}
+    const needs=project.store.records('Need').filter(r=>field(r.expression,'episode')===episode.id);
+    if(needs.length){const detail=node('details');detail.append(node('summary','What Pocket needed to learn'));for(const need of needs)detail.append(node('pre',format(need.expression)));inspector.append(detail);}
     const evidenceIDs=values(field(response?.expression,'sources'));
     if(evidenceIDs.length){const evidence=node('details');evidence.append(node('summary','Answer evidence and retained sources'));for(const id of evidenceIDs.slice(0,12)){const record=project.store.record(id);if(record)evidence.append(node('pre',id+' · '+record.source+'\n'+format(record.expression).slice(0,5000)));}inspector.append(evidence);}
     if(status==='resolved') inspector.append(node('pre',format(values(result)[0])));
@@ -108,6 +120,22 @@ function history() {
     raw.append(pieces); inspector.append(raw);
     const revisit = node('button', 'Revisit with what it knows now ↗', 'revisit');
     revisit.addEventListener('click', () => act(async () => { const turn = await project.resume(episode.id); notice(`Revisited the original observation: ${turn.status}.`); }, { message: 'Revisiting…' }));
+    const hypotheses=project.store.records('LearningHypothesis').filter(r=>field(r.expression,'episode')===episode.id);
+    for(const hypothesis of hypotheses){
+      const detail=node('details');detail.append(node('summary','Optional teacher proposal · inspect or correct'));
+      const validations=project.store.records('LearningValidation').filter(r=>field(r.expression,'hypothesis')===hypothesis.id);
+      detail.append(node('p',validations.length?'Passed consistency checks. This is revisable learning, not an independent proof.':'Proposal retained; not installed.'),node('pre',values(hypothesis.expression)[0]));
+      if(validations.length){
+        const correction=node('textarea');correction.rows=2;correction.placeholder='What was wrong? What should it mean?';correction.setAttribute('aria-label','Correction to this learning');
+        const reject=node('button','Withdraw this learning & retain correction','revisit');
+        reject.addEventListener('click',()=>act(()=>{
+          if(!correction.value.trim())throw new Error('Describe the correction so it can learn from it.');
+          project.modelLearner.reject(hypothesis.id,correction.value,{meaning:result?.head==='Resolved'?values(result)[0]:undefined});
+          notice('Learning withdrawn. Your correction and original words are retained for the next investigation.');
+        }));detail.append(correction,reject);
+      }
+      inspector.append(detail);
+    }
     inspector.append(revisit); article.append(inspector); $('history').append(article);
   }
 }
@@ -161,6 +189,8 @@ async function curriculum() {
 for (const button of document.querySelectorAll('[data-tab]')) button.addEventListener('click', () => tab(button.dataset.tab));
 for (const button of document.querySelectorAll('[data-prompt]')) button.addEventListener('click', () => { $('message').value = button.dataset.prompt; $('message').focus(); });
 $('search').addEventListener('input', () => project && concepts());
+$('teacher').addEventListener('change',()=>{window.localStorage.setItem('pocket-teacher',String($('teacher').checked));if(project?.modelLearner)project.modelLearner.enabled=$('teacher').checked;});
+$('teacher').checked=window.localStorage.getItem('pocket-teacher')!=='false';
 $('online').addEventListener('change', () => { if (project) project.online = $('online').checked; });
 $('talkForm').addEventListener('submit', event => {
   event.preventDefault(); const text = $('message').value;
@@ -227,7 +257,7 @@ $('restoreFile').addEventListener('change', event => {
     const store = new BrowserStore(SQL, bytes); let replacement;
     try {
       if (store.db.prepare('PRAGMA quick_check').get()?.quick_check !== 'ok') throw new Error('Backup integrity check failed.');
-      replacement = new ProjectCore({ store, bundle, profile: 'keal', online: $('online').checked, fetcher:researchFetch, sourceBaseUrl:location.origin, sourceURLHeader:true });
+      replacement = new ProjectCore({ store, bundle, profile: 'keal', online: $('online').checked, fetcher:researchFetch, sourceBaseUrl:location.origin, sourceURLHeader:true, teacher:{enabled:$('teacher').checked} });
     } catch (error) { try { store.close(); } catch {} throw error; }
     // Save the replacement before replacing the currently usable notebook.
     try { await vault.write(replacement.store.snapshot()); } catch (error) { replacement.close(); throw error; }
@@ -244,7 +274,7 @@ async function initialize() {
     const manifest = await response.json(), packs = {};
     await Promise.all(manifest.packs.map(async name => { const response = await fetch('/packs/' + name); if (!response.ok) throw new Error('Missing runtime pack: ' + name); packs[name] = await response.text(); }));
     bundle = { manifest, packs };
-    project = new ProjectCore({ store: new BrowserStore(SQL, await vault.read()), bundle, online: $('online').checked, profile: 'keal', fetcher:researchFetch, sourceBaseUrl:location.origin, sourceURLHeader:true });
+    project = new ProjectCore({ store: new BrowserStore(SQL, await vault.read()), bundle, online: $('online').checked, profile: 'keal', fetcher:researchFetch, sourceBaseUrl:location.origin, sourceURLHeader:true, teacher:{enabled:$('teacher').checked} });
     await project.prepare();
     await vault.write(project.store.snapshot()); controls(false); refresh(); $('saved').textContent = 'Saved in this browser';
     const prior=project.store.records('Episode').filter(r=>field(r.expression,'profile')==='keal').sort((a,b)=>field(b.expression,'sequence',0)-field(a.expression,'sequence',0)).slice(0,1);

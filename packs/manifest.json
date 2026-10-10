@@ -9,7 +9,9 @@
     "research.ncon",
     "grounding.ncon",
     "notation.ncon",
-    "evidence.ncon"
+    "evidence.ncon",
+    "model-learning.ncon",
+    "assessment.ncon"
   ],
   "required": [
     "Hear",

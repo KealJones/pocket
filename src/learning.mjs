@@ -65,7 +65,7 @@ export class Learner {
     this.project.responseEvidence?.push(...matches.flatMap(m=>[m.record.id,...m.proofs]));
     if(choices.length>1)return call('Replied',[],{text:'The retained sources give different supported possibilities:\n\n'+matches.map(m=>field(m.record.expression,'text')).join('\n\n'),research:'ambiguous',pending:true});
     const chosen=matches[0],bindings=[...chosen.bindings.values()],answer=bindings.length===1?bindings[0]:term('Bindings',...Array.from(chosen.bindings,([name,value])=>call('Binding',[value],{name})));
-    return call('Replied',[],{text:field(chosen.record.expression,'text').trim(),answer,research:'attributed-meaning',url:field(chosen.record.expression,'url'),evidence:chosen.record.id});
+    return call('Replied',[],{text:bindings.length===1 ? (typeof answer==='string'?answer:format(answer))+'\n\n'+field(chosen.record.expression,'text').trim() : field(chosen.record.expression,'text').trim(),answer,research:'attributed-meaning',url:field(chosen.record.expression,'url'),evidence:chosen.record.id});
   }
   bindSenses(){
     const identities=[...this.store.definitions()].flatMap(([owner])=>this.store.parts(owner,'SenseIdentity').map(p=>({owner,...p})));
@@ -158,6 +158,15 @@ export class Learner {
     const maximum=p.policy('RequestLearningPolicy','MaximumPasses'),jobs=p.policy('RequestLearningPolicy','MaximumJobs'),milliseconds=p.policy('RequestLearningPolicy','MaximumMilliseconds');
     await this.revisitEvidence({budget:p.policy('EvidenceReadingPolicy','RevisitBudget'),profile});
     let analysis=await p.analyze(input,{profile,context});
+    // Needs are part of Pocket's own worklist, even with no teacher configured.
+    // Preserve the before/after hypotheses and their support rather than using
+    // an unstructured "unknown" message as the learning state.
+    const gaps=[];
+    if(!this.best(analysis))gaps.push(term(analysis.candidates.length?'ResolveAlternatives':'LearnConstruction'));
+    for(const word of this.unknowns(input,analysis))gaps.push(term('LearnSense',word));
+    for(const candidate of analysis.candidates)for(const hole of candidate.holes)gaps.push(term('FillRole',hole));
+    const need=gaps.length?this.store.put(call('Need',gaps,{episode,profile,context,phase:'independent',sequence:p.sequence(),hypotheses:term('List',...analysis.candidates.map(c=>p.candidateExpression(c)))}),{source:'derived:learning-need',supports:[episode,...analysis.candidates.flatMap(c=>c.supports)]}):null;
+    if(need)await p.onProgress?.({stage:'learning',message:'Pocket is checking source meanings, examples and retained concepts…'});
     if(!this.best(analysis)){await this.decode(input,{profile,context,contextSupports,deadline:started+milliseconds},steps);analysis=await p.analyze(input,{profile,context});}
     for(let pass=0;pass<maximum&&Date.now()-started<milliseconds;pass++) {
       this.bindSenses();this.activateFrames(analysis);
@@ -180,7 +189,8 @@ export class Learner {
     this.bindSenses();analysis=await p.analyze(input,{profile,context});this.activateFrames(analysis);
     analysis=await p.analyze(input,{profile,context});
     const chosen=this.best(analysis);if(chosen)await this.realize(chosen.meaning,steps);
-    this.store.put(call('LearningRun',[input.expression],{episode,sequence:p.sequence(),steps:term('List',...steps.map(s=>call('LearningStep',[s.query],{kind:s.kind,status:s.status,detail:s.detail??'',evidence:s.evidence??null}))),elapsed:Date.now()-started}),{source:'derived:learning-run',supports:[episode,...steps.flatMap(s=>s.evidence?[s.evidence]:[]),...this.store.parts('RequestLearningPolicy').map(p=>p.support)]});
+    const run=this.store.put(call('LearningRun',[input.expression],{episode,sequence:p.sequence(),steps:term('List',...steps.map(s=>call('LearningStep',[s.query],{kind:s.kind,status:s.status,detail:s.detail??'',evidence:s.evidence??null}))),elapsed:Date.now()-started}),{source:'derived:learning-run',supports:[episode,...steps.flatMap(s=>s.evidence?[s.evidence]:[]),...this.store.parts('RequestLearningPolicy').map(p=>p.support)]});
+    if(need)this.store.put(call('NeedStatus',[],{need,status:chosen?'interpreted':'open',hypotheses:term('List',...analysis.candidates.map(c=>p.candidateExpression(c))),sequence:p.sequence()}),{source:'derived:need-status',supports:[need,run,...analysis.candidates.flatMap(c=>c.supports)]});
     return {analysis,attempts:steps};
   }
 }

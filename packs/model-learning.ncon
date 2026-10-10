@@ -1,0 +1,7 @@
+// Proposal transport and checking are host mechanisms. This editable concept
+// program chooses their order. Model output cannot replace this policy.
+Concept(ModelLearningPolicy(),ConstructionWeight(20),MaximumAttempts(2))
+Concept(LearnMissing(),Realization(LearnMissing($need),
+ body=Let($proposal,Native("learning.propose",$need),Native("learning.validate-and-retain",$need,$proposal))))
+Concept(TopicQuestion(),LearningFallback())
+Concept(SearchQuestion(),LearningFallback())

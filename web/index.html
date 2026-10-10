@@ -18,7 +18,8 @@
       <button class="primary" id="demo" disabled>Try the learning demo <span>↗</span></button>
       <p class="hint">Teach one example, then try it with someone and something new.</p>
       <div class="stats"><div><strong id="conceptCount">—</strong><span>concepts</span></div><div><strong id="lessonCount">—</strong><span>lessons</span></div><div><strong id="jobCount">—</strong><span>open tasks</span></div></div>
-      <label class="toggle"><input id="online" type="checkbox" checked><span>Look up unknown words online</span></label>
+      <label class="toggle"><input id="online" type="checkbox" checked><span>Learn from sources online</span></label>
+      <label class="toggle"><input id="teacher" type="checkbox" checked><span>Ask Gemini only when Pocket’s own learning leaves a gap</span></label><p class="hint">Pocket tries retained knowledge and source learning first. Optional help shares the current question, recent context, and selected evidence. Learned concepts work with Gemini switched off.</p>
       <div class="storage-note"><span class="dot"></span>Learning lives in this browser.<br>Download a backup to keep a copy.</div>
       <div class="tools"><button id="backup" disabled>↓ Backup</button><button id="restore" disabled>↑ Restore</button><input id="restoreFile" type="file" accept=".sqlite,.db" hidden></div>
       <a class="source-link" href="/napkin-next-source.zip" download>Download project source ↗</a>
@@ -51,7 +52,7 @@ Concept(Book(), Surface("book"), IsA(Object()))</textarea><button type="submit" 
       <section id="work" class="panel" hidden><div class="panel-title">Unfinished questions</div><h2>Unknown is a starting point.</h2><p>Source lookups and missing structure stay here until evidence can help.</p><button id="exist" class="primary" disabled>Investigate & revisit ↗</button><div id="jobs"></div><div id="workResult" hidden></div><div class="divider"></div><form id="pageForm"><label for="pageUrl">Fetch a source as evidence</label><input id="pageUrl" type="url" placeholder="https://…" required><button type="submit" class="secondary" disabled>Fetch source</button></form><div id="pageResult" hidden></div></section>
     </section>
   </main>
-  <footer><span>NAPKIN NEXT · 0.3</span><span>Evidence first. Learning always.</span></footer>
+  <footer><span>NAPKIN NEXT · 0.9.1</span><span>Evidence first. Learning always.</span></footer>
   <script src="/vendor/sql-wasm.js"></script><script type="module" src="/app.js"></script>
 </body>
 </html>

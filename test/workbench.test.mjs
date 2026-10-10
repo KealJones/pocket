@@ -30,6 +30,9 @@ test('workbench controls teach real concepts and retain exact pieces, rewards, a
   function submit(id) { $(id).dispatchEvent(new window.Event('submit', { bubbles: true, cancelable: true })); }
   try {
     await import('../web/app.mjs'); await settled();
+    assert.equal($('teacher').checked,true);
+    $('teacher').checked=false;$('teacher').dispatchEvent(new window.Event('change'));
+    assert.equal(window.localStorage.getItem('pocket-teacher'),'false');
     $('demo').click(); await settled();
     assert.ok($('history').textContent.includes('Returning(actor=Emmy(), object=Cookie())'));
     assert.equal($('lessonCount').textContent, '1');

@@ -208,3 +208,44 @@ unfamiliar grammar entirely from web prose, and indefinite investigation remain
 unimplemented. The shared reader processes at most 64 sentences in one read.
 The interface changes only add research progress/checkpoint saving; existing mobile
 styles remain in place. No visual phone/browser QA was available in this environment.
+
+## 0.9 independent-first proposal learning (2026-10-10)
+
+- Final regression suite: **136 tests passed**, including the lexical
+  anti-memorization case and independent-first workbench settings.
+- `npm run check`: 144 concept declarations and required behaviors validated.
+- `npm run demo`: lossless input, generalized constructions, reward updates,
+  unresolved roles, simultaneous meanings and revision still work.
+- New deterministic tests cover a previously unseen operation, same-request
+  execution, reopening SQLite and offline transfer, atomic rejection of failed
+  checks, effect rejection in an untested branch, core-policy protection,
+  source-span attribution including incidental facts, retraction/counterexamples,
+  bounded validation repair, renamed withdrawn proposals, provider failures,
+  source-before-teacher ordering, and successful independent learning with no
+  Gemini call. Source/provider responses in these tests are fixtures.
+- Live internet check, fresh notebook: `what is 9 times three?` acquired source
+  senses, checked the implementation lesson, and answered **27** with **zero
+  Gemini calls**. With network disabled, `what is 14 times three?` answered **42**.
+- Live internet + Gemini check, fresh notebook: Pocket attempted composition and
+  lexical acquisition first, then accepted one checked teacher proposal for
+  `what is 7 percent of 80?` and answered **5.6**. Network disabled afterward:
+  `what is 15 percent of 60?` answered **9** from retained concepts. No percentage
+  question or answer was added to the application or its starter packs.
+- The actual browser SQLite engine and DOM workbench tests remain in the suite.
+  New controls expose teacher enable/disable, original proposals, needs and
+  correction withdrawal. Mobile CSS keeps the new correction fields at 16px and
+  buttons wrapping with at least 44px touch height. Visual mobile browser QA was
+  unavailable: this managed environment has no supported control-browser skill.
+- Consistency tests are not semantic truth proofs. Model interpretations can be
+  wrong, available operations remain bounded, and requests outside learned
+  coverage can remain unresolved. Public proxy rate limits may pause teaching;
+  independent learning and retained execution continue to work.
+
+### 0.9.1 assessment follow-up
+
+Four additional tests verify high estimates for checked execution with no teacher
+call, low estimates for missing answer roles, failed fetch assessment without
+teacher use, and separately retained critiques without invented facts or reward.
+Final updated suite: **140 tests passed**; `npm run check` validated **153**
+concept declarations and the demo passed. Visual browser QA remains
+unavailable; shared browser SQLite and DOM interaction coverage are retained.

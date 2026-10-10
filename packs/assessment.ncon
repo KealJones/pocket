@@ -1,0 +1,12 @@
+// Assessment is a revisable estimate of the evidence available to this runtime.
+// It is not calibrated probability and does not turn feedback into factual truth.
+Concept(AssessmentPolicy(),ReviewBelow(0.65))
+Concept(AnswerQuality(),Realization(AnswerQuality($relevance,$grounding,$execution,$ambiguity),
+ body=Native("number.divide",Native("number.add",Native("number.add",$relevance,$grounding),Native("number.add",$execution,$ambiguity)),4)))
+Concept(RequestValue(),AnswerRequirement(BoundValue()),AnswerRequirement(CheckedExecution()))
+Concept(RequestKnowledge(),AnswerRequirement(BoundValue()),AnswerRequirement(SourceRelationship()))
+Concept(FactQuestion(),AnswerRequirement(BoundValue()),AnswerRequirement(SourceRelationship()))
+Concept(ActionQuestion(),AnswerRequirement(BoundValue()),AnswerRequirement(SourceRelationship()))
+Concept(MeasurementQuestion(),AnswerRequirement(SourceRelationship()))
+Concept(GuidanceQuestion(),AnswerRequirement(SourceRelationship()))
+Concept(FetchPage(),AnswerRequirement(ReplyKind("Fetched")),NoTeacherReview())

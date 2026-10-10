@@ -29,7 +29,7 @@ test('Gemini proxy sends provider key only upstream and returns structured outpu
     assert.equal(url, 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent');
     assert.equal(options.headers['x-goog-api-key'], env.GEMINI_API_KEY);
     assert.equal(options.headers.authorization, undefined);
-    assert.equal(options.redirect, 'manual');
+    assert.equal(options.redirect, 'error');
     const parsed = JSON.parse(options.body);
     assert.equal(parsed.generationConfig.candidateCount, 1);
     assert.equal(parsed.generationConfig.temperature, 0);

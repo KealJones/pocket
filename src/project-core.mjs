@@ -6,18 +6,23 @@ import { Sources } from './sources.mjs';
 import { addOutcome, induce, answerLearned } from './outcomes.mjs';
 import { learnCode } from './code-learning.mjs';
 import { Research } from './research.mjs';
+import { assessAnswer } from './assessment.mjs';
+import { ModelLearner } from './model-learning.mjs';
 import { Learner } from './learning.mjs';
 import { term, call, values, field, isTerm, format, parse, parseMany, match } from './ncon.mjs';
 
 const assertNumber = n => { if (typeof n !== 'number' || !Number.isFinite(n)) throw new TypeError('Expected finite number'); return n; };
 export class ProjectCore {
-  constructor({ store, bundle, online = true, fetcher, profile = '', sourceBaseUrl, sourceURLHeader = false, onProgress }) {
+  constructor({ store, bundle, online = true, fetcher, profile = '', sourceBaseUrl, sourceURLHeader = false, onProgress, teacher = null }) {
     this.store = store; this.online = online; this.profile = profile; this.bundle = bundle; this.onProgress=onProgress;
     try { this.boot(); } catch (error) { this.store.close(); throw error; }
     this.sources = new Sources(this.store, { fetcher, baseURL: sourceBaseUrl, sourceURLHeader, timeout: this.policy('LearningPolicy', 'RequestTimeout'), maximumBytes: this.policy('LearningPolicy', 'MaximumBytes') });
     this.research = new Research(this);
     this.learner = new Learner(this);
+    this.modelLearner = teacher ? new ModelLearner(this, teacher) : null;
     const capabilities = {
+      'learning.propose': need => this.modelLearner.propose(need),
+      'learning.validate-and-retain': (need, proposal) => this.modelLearner.validateAndRetain(need, proposal),
       'number.add': (a, b) => assertNumber(assertNumber(a) + assertNumber(b)),
       'number.subtract': (a, b) => assertNumber(assertNumber(a) - assertNumber(b)),
       'number.multiply': (a, b) => assertNumber(assertNumber(a) * assertNumber(b)),
@@ -142,7 +147,7 @@ export class ProjectCore {
     });
   }
   validateEvidence(expressions) {
-    const forbidden = new Set(['AttributedMeaning','EvidenceReading','EvidenceObservation','MaximumPassages','RevisitBudget','MaximumSearchPages','MaximumRelatedProperties','RelationPath','RelationBinding','ContextualArgument','ArgumentHint','ContextFor','RejectedReply','MaximumMeasurements','ReadForm','ContextHint','Clarification','DecodedValue','Frame','ImplementationLesson','SenseIdentity','ValueMapping','MaximumPasses','MaximumJobs','MaximumDecodings','MaximumMilliseconds','MaximumTypeDepth','MaximumTypeNodes','TypeEvidence','Realization', 'Construction', 'Native', 'ValidatedProgram', 'ValidatedRealization', 'StarterProcedure', 'StarterLesson', 'Capability', 'Arity', 'Commutative', 'MinimumExamples', 'MaximumExpressions', 'Adapter', 'Endpoint', 'Revision', 'Priority', 'LearningRate', 'Margin', 'MaximumStates', 'MaximumCandidates', 'MaximumSpan', 'RequestTimeout', 'MaximumBytes', 'TickBudget','MaximumRequests','MaximumResearchMilliseconds','SearchLimit','CacheMilliseconds','EndTimeProperty','PointInTimeProperty','ResearchAnswer','KnowledgeFact']);
+    const forbidden = new Set(['AnswerAssessment','AnswerRequirement','ReviewBelow','NoTeacherReview','LearningFallback','ModelLearningPolicy','ConstructionWeight','MaximumAttempts','AttributedMeaning','EvidenceReading','EvidenceObservation','MaximumPassages','RevisitBudget','MaximumSearchPages','MaximumRelatedProperties','RelationPath','RelationBinding','ContextualArgument','ArgumentHint','ContextFor','RejectedReply','MaximumMeasurements','ReadForm','ContextHint','Clarification','DecodedValue','Frame','ImplementationLesson','SenseIdentity','ValueMapping','MaximumPasses','MaximumJobs','MaximumDecodings','MaximumMilliseconds','MaximumTypeDepth','MaximumTypeNodes','TypeEvidence','Realization', 'Construction', 'Native', 'ValidatedProgram', 'ValidatedRealization', 'StarterProcedure', 'StarterLesson', 'Capability', 'Arity', 'Commutative', 'MinimumExamples', 'MaximumExpressions', 'Adapter', 'Endpoint', 'Revision', 'Priority', 'LearningRate', 'Margin', 'MaximumStates', 'MaximumCandidates', 'MaximumSpan', 'RequestTimeout', 'MaximumBytes', 'TickBudget','MaximumRequests','MaximumResearchMilliseconds','SearchLimit','CacheMilliseconds','EndTimeProperty','PointInTimeProperty','ResearchAnswer','KnowledgeFact']);
     const visit = expression => { if (!isTerm(expression)) return; if (forbidden.has(expression.head)) throw new Error('Evidence cannot install behavior or policy: ' + expression.head); for (const a of expression.args) visit(a.value); };
     for (const expression of expressions) visit(expression);
   }
@@ -171,7 +176,7 @@ export class ProjectCore {
     }
     return {...candidate,meaning,id:digest(candidate.rule+'|'+format(meaning)),supports:[...new Set([...candidate.supports,...supports])]};
   }
-  async turn(text, { learn = this.online, profile = this.profile, context = term('Context'), contextSupports=[], episode } = {}) {
+  async turn(text, { learn = this.online, profile = this.profile, context = term('Context'), contextSupports=[], episode, assisted = true } = {}) {
     await this.prepare();
     if(!episode){
       const previous=this.store.records('Episode').filter(r=>field(r.expression,'profile','')===profile).sort((a,b)=>field(b.expression,'sequence',0)-field(a.expression,'sequence',0))[0];
@@ -193,10 +198,18 @@ export class ProjectCore {
       else if (analysis.candidates.length > 1) this.store.enqueue(text, 'interpretation');
     };
     queueGaps();
+    let assistance;
     const needsAcquisition=!analysis.candidates.length||analysis.candidates.some(c=>c.holes.length)||analysis.exhausted;
     const learned=await this.learner.request(input,{profile,context,contextSupports,acquire:learn&&needsAcquisition,episode:episodeId});
     analysis=learned.analysis;
     const attempts=learned.attempts;
+    // Independent acquisition, frame learning, decoding and implementation
+    // checks always get first use of this request. A fallback research reading
+    // must also run its own source plan before asking the optional teacher.
+    if(learn && assisted && this.modelLearner && !this.learner.best(analysis)){
+      assistance=await this.modelLearner.assist({input,analysis,episode:episodeId,profile,context});
+      if(assistance.changed)analysis=await this.analyze(input,{profile,context});
+    }
     if (analysis.graphVersion !== this.store.version) { analysis = await this.analyze(input, { profile, context }); queueGaps(); }
     analysis.candidates=analysis.candidates.map(c=>this.contextualize(c,context));
     const margin = this.policy('InterpretationPolicy', 'Margin'), [best, next] = analysis.candidates;
@@ -250,10 +263,21 @@ export class ProjectCore {
       this.responseEvidence=undefined;
       this.responseProfile=undefined;
     }
+    let assessment=await assessAnswer(this,{episode:episodeId,reading:readingId,reply,replyId,analysis,status});
+    if(learn && assisted && this.modelLearner && !assistance && (field(reply,'pending',false)||assessment.review)) {
+      const evidence=await this.modelLearner.assist({input,analysis,episode:episodeId,profile,context,phase:'evidence',assessment,reply});
+      if(evidence.changed)return this.turn(text,{learn:false,profile,context,contextSupports,episode:episodeId,assisted:false});
+      assistance=evidence.clarification?evidence:assistance;
+    }
+    if(assistance?.clarification){
+      reply=call('Replied',[],{text:assistance.clarification,pending:true});
+      replyId=this.store.put(call('Reply',[reply],{episode:episodeId,reading:readingId,sources:term('List'),sequence:this.sequence()}),{source:'derived:clarification-request',supports:[readingId,assistance.need]});
+      assessment=await assessAnswer(this,{episode:episodeId,reading:readingId,reply,replyId,analysis,status:'learning'});
+    }
     if (status === 'resolved') {
       for (const job of this.store.agenda().filter(j => j.query === text && ['composition', 'interpretation'].includes(j.kind))) this.store.updateJob(job.id, 'done', 'Resolved by supported evidence');
     }
-    return { episodeId, readingId, reply, replyId, input, status:retry?.status??(field(reply,'pending',false)?'learning':status), result, spoken, candidates: analysis.candidates, attempts:[...attempts,...(retry?.attempts??[])],clarification, exhausted: analysis.exhausted };
+    return { episodeId, readingId, reply, replyId, assessment, input, status:retry?.status??(field(reply,'pending',false)?'learning':status), result, spoken, candidates: analysis.candidates, attempts:[...attempts,...(retry?.attempts??[])],clarification, exhausted: analysis.exhausted };
   }
   async resume(episodeId, options = {}) {
     const episode = this.store.record(episodeId);
