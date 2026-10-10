@@ -5,3 +5,9 @@ dist/
 .openai/artifacts/
 .openai/runtime/
 coverage/
+.env
+.env.*
+!.env.example
+.dev.vars
+.dev.vars.*
+.wrangler/
