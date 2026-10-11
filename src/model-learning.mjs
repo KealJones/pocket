@@ -6,6 +6,7 @@ import { StoreBase } from './store-base.mjs';
 import { validateCode, parameterNames } from './code-learning.mjs';
 import { digest } from './digest.mjs';
 import { learningContext, memoryContext } from './learning-context.mjs';
+import { gateContext } from './contextual-eligibility.mjs';
 
 export const DEFAULT_TEACHER_URL = 'https://pocket-gemini.kealjones.workers.dev/v1/generate';
 const PURE = new Set(['number.add','number.subtract','number.multiply','number.divide','number.less','value.equal','text.concat','text.length','text.at','term.format']);
@@ -108,6 +109,7 @@ export class ModelLearner {
     const memory=memoryContext(this.store,profile);
     const retainedContext=learningContext(this.store,{profile,episodes,analysis,memoryKinds:memory.map(m=>parse(m.kind))});
     const payload={...retainedContext,memory,processTrace,traceIsRuntimeDecisions:true,request:input.source,need:format(this.store.record(need).expression),context:format(context),hypotheses:analysis.candidates.slice(0,6).map(c=>({meaning:format(c.meaning),holes:c.holes.map(format),supports:c.supports})),sources,rejected,existing,answerUnderReview:session.reply?format(session.reply):null,assessment:session.assessment?format(session.assessment.expression):null,validationFailure:session.validationError??null,previousProposal:session.previousProposal?.slice(0,5000)??null};
+    payload.contextRejected=(analysis.contextRejected??[]).slice(0,6).map(c=>({meaning:format(c.meaning),needs:c.contextProof.needs.map(format)}));
     const request={systemInstruction:{parts:[{text:INSTRUCTIONS}]},contents:[{role:'user',parts:[{text:JSON.stringify(payload)}]}],generationConfig:{temperature:0,maxOutputTokens:4096,responseMimeType:'application/json'}};
     const encode=()=>JSON.stringify(request);
     let body=encode();
@@ -197,7 +199,7 @@ export class ModelLearner {
       if(new Set(fitting.map(c=>format(parse(c.input)))).size<2)throw new Error('Each realization needs two different execution checks');
       for(const c of fitting){const bindings=match(pattern,parse(c.input),new Map()),actual=(await evaluator.evaluate(body,{bindings})).value;if(format(actual)!==format(parse(c.output)))throw new Error('Execution check failed: '+c.input);}
     }
-    const analyze=source=>propose(view,capture(source),{profile,context,maximumStates:16384,maximumSpan:12,score:async(e,x,h)=>({value:e-h*.25,supports:[]})});
+    const analyze=async source=>gateContext(view,await propose(view,capture(source),{profile,context,maximumStates:16384,maximumSpan:12,score:async(e,x,h)=>({value:e-h*.25,supports:[]})}),{profile,episode:session.episode});
     if(declarations.some(c=>values(c).some(p=>p.head==='Construction'))&&new Set(examples.filter(e=>!e.negative).map(e=>e.text)).size<2)throw new Error('New constructions need two different language examples');
     for(const example of examples){
       if(typeof example.text!=='string'||example.text.length>2000)throw new Error('Invalid language example');const expected=parse(example.meaning),analysis=await analyze(example.text);

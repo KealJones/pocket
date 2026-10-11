@@ -699,3 +699,42 @@ currently uses literal text, not learned allergen/synonym reasoning. Acquisition
 is bounded to six configured search candidates and the shared request deadline.
 This adapter supplies structure from a source schema; it does not claim to discover
 arbitrary instruction extraction or culinary semantics from prose.
+
+## Contextual proposals and acquisition retention (0.12)
+
+Orthographic distance generates hypotheses; it never edits observations. An exact,
+context-eligible, non-fallback interpretation is tried first. If that fails,
+`SurfaceRepairPolicy` bounds an optimal-string-alignment search over retained forms
+and literal construction parts. Proposed fragments require a surrounding construction;
+isolated nearest words cannot commit. Typed roles, whole-input coverage, profile
+scope and context requirements determine which proposals fit. Protected quotes,
+code and URLs, and source-evidence readings, are excluded. Spelling proposals remain
+visible in stored candidates and traces, with policy/source dependencies. No alias
+or personal habit is asserted automatically. Checks are consistency evidence, not
+independent proof of the intended spelling; answer grounding is capped accordingly.
+
+Distance, proposal generation, chart matching and context inspection are runtime
+mechanics. Penalties and resource limits are authored policy; this is not learned
+neural attention. A new unrecognized context condition stays unmet. Currently the
+inspector implements `PreviousAllowsHint(role)` for an exact-head
+`ContextRequirement(pattern, conditions...)`. It examines the preceding committed
+reading, not a discarded search runner-up. Pending readings may retain alternatives.
+Profile and episode-order checks prevent replay from borrowing later context;
+clarification chains retain their evidence. Unsupported proposals remain visible
+as `contextRejected` rather than executing and demanding unrelated arguments.
+References for candidate-generation/scoring separation:
+https://aclanthology.org/C90-2036/ and https://aclanthology.org/P00-1037/ .
+
+A complete parse marked `LearningFallback` remains provisional during acquisition.
+The shared learner searches its actual gaps, including senses behind spelling
+hypotheses, and reinterprets before returning a useful excerpt. The excerpt does
+not close the interpretation need. Finite resource limits still apply.
+
+Successful lexical acquisitions retain source configuration, source-definition
+supports, retrieval time and record count. `AcquisitionPolicy.CacheMilliseconds`
+controls reuse (five minutes by default), including successful empty searches.
+An empty result cannot assert nonexistence or fulfill a lexical need. Failed
+requests create no successful-acquisition record and remain retryable. Changed
+configuration bypasses the cache. Worked-example searches depend on the current
+utterance and do not reuse this lexical cache. Research snapshots have their own
+existing freshness policy. Browser notebooks retain these ordinary graph records.

@@ -313,3 +313,14 @@ Notebook settings offer **Learning history** (readable JSON, including withdrawn
 knowledge and review history) and **SQLite backup** (the complete restorable
 notebook). Existing browser notebooks migrate automatically. CLI users can export
 with `:history("learning-history.json")`.
+
+### Contextual repair (0.12)
+
+With Gemini and internet learning off, try `waht time is it` followed by
+`militry tiem?`. Pocket proposes spelling readings against its retained concepts
+and constructions, then uses surrounding typed roles and context to select a fit.
+Your words remain intact. Inspect **Proposed spelling readings** to see the repairs;
+no personal spelling alias is installed automatically. Ambiguous repairs and
+unmatched words remain unresolved. Dictionary/article fallbacks no longer stop
+independent acquisition just because their syntax parses. Successful empty lexical
+lookups are reused briefly, while failed requests remain retryable.

@@ -25,6 +25,7 @@ test('teacher sees actual prior reply and reachable format definitions, learns a
   return envelope(packet(['Concept(AcquiredMisspelling(),Surface("militry tiem"),Denotes(TwentyFourHourTime()))']));
  }}});
  try{
+  p.load('Concept(SurfaceRepairPolicy(),Revision(1),Enabled(0))');
   assert.equal(answer(await p.turn('what time is it')),'04:39 PM');
   const r=await p.turn('militry tiem');assert.equal(answer(r),'16:39');assert.equal(calls,1);
   assert.equal(values(values(p.store.record(r.episodeId).expression)[0])[0],'militry tiem');
@@ -55,7 +56,7 @@ test('a complete but irrelevant correction is reviewed and reusable repair wordi
   'Concept(AcquiredFormatRepair(),Construction(pattern=List(Literal("no like"),Slot($format,kind=TimeFormat())),meaning=SessionRequest(SetClockFormat($format))))'
  ]);lesson.examples=[{text:'no like army clock',meaning:'SessionRequest(SetClockFormat(TwentyFourHourTime()))'},{text:'no like 12-hour time',meaning:'SessionRequest(SetClockFormat(TwelveHourTime()))'}];
  const p=new Project({...options,fetcher:failedNetwork,teacher:{fetcher:async(url,init)=>{
-  calls++;const data=JSON.parse(JSON.parse(init.body).contents[0].parts[0].text);assert.match(data.answerUnderReview,/Which earlier subject/);assert.match(data.assessment,/requested value has not been bound/);
+  calls++;const data=JSON.parse(JSON.parse(init.body).contents[0].parts[0].text);assert.equal(data.answerUnderReview,null);assert.ok(data.contextRejected.some(c=>c.meaning.includes('ReferentCorrection')&&c.needs.some(n=>n.includes('PreviousAllowsHint'))));
   return envelope(lesson);
  }}});try{
   await p.turn('what time is it');assert.equal(answer(await p.turn('no like army clock')),'16:39');assert.equal(calls,1);

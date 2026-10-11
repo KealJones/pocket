@@ -61,7 +61,7 @@ test('a weak Wikipedia match remains a preview; correction selects a source-link
 });
 test('a correction with no applicable preceding question does not invent or change an unrelated subject',async()=>{
  const p=new Project({online:false});try{
-  await p.turn('hello');const follow=await p.turn('no the boat');assert.equal(follow.clarification,undefined);assert.equal(field(follow.reply,'clarifiedEpisode'),undefined);assert.match(field(follow.reply,'text'),/Which earlier subject/);
+  await p.turn('hello');const follow=await p.turn('no the boat');assert.equal(follow.clarification,undefined);assert.equal(field(follow.reply,'clarifiedEpisode'),undefined);assert.equal(follow.status,'learning');assert.equal(p.store.records('Reading').find(r=>r.id===follow.readingId).expression.args.find(a=>a.name==='contextRejected').value.head,'List');
  }finally{p.close();}
 });
 test('unsupported kinds and measurement acquisition bounds remain pending without wrong-subject fallback',async()=>{
@@ -90,5 +90,23 @@ test('measurement facts and the chosen referent survive actual browser SQLite re
 test('source material cannot authorize context argument overrides or change measurement limits',()=>{
  const p=new Project({online:false});try{
   for(const text of ['Concept(X(),ContextualArgument("kind"))','ArgumentHint(name="kind",value="ship")','Concept(ResearchPolicy(),MaximumMeasurements(1000))','RejectedReply(reply="x")'])assert.throws(()=>p.load(text,{trusted:false}),/Evidence cannot install/);
+ }finally{p.close();}
+});
+
+test('a resolved unrelated reading cannot borrow a search runner-up to authorize a correction',async()=>{
+ const p=new Project({online:false,profile:'keal'});try{
+  const first=await p.turn('what time is it');assert.equal(first.status,'resolved');
+  const correction=await p.turn('no the boat');assert.equal(correction.clarification,undefined);
+  assert.equal(p.store.records('Clarification').length,0);assert.ok(values(field(p.store.record(correction.readingId).expression,'contextRejected')).length);
+  assert.equal(p.store.record(first.replyId).active,true);
+ }finally{p.close();}
+});
+test('correction eligibility stays within the profile and original observation order when replaying',async()=>{
+ const p=new Project({online:false,profile:'keal'});try{
+  const early=await p.turn('no the boat');assert.equal(early.clarification,undefined);
+  await p.turn('what is Disney Wonder');
+  const replay=await p.resume(early.episodeId,{learn:false});assert.equal(replay.clarification,undefined);
+  const other=await p.turn('no the boat',{profile:'another-person'});assert.equal(other.clarification,undefined);
+  assert.equal(p.store.records('Clarification').length,0);
  }finally{p.close();}
 });

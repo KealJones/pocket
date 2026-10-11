@@ -52,6 +52,7 @@ StarterLesson("the widget",ReferentCorrection(kind="widget"),textSlots=true,weig
 StarterLesson("I mean the widget",ReferentCorrection(kind="widget"),textSlots=true,weight=5)
 StarterLesson("I mean widget",ReferentCorrection(kind="widget"),textSlots=true,weight=3)
 Concept(ReferentCorrection(),IsA(Correction()))
+Concept(ReferentCorrection(),ContextRequirement(ReferentCorrection(kind=$kind),PreviousAllowsHint("kind")))
 Concept(ContextFor(),Realization(ContextFor(ReferentCorrection(kind=$kind)),
  body=Let($kindForm,ReferentKindForm($kind),Context(ArgumentHint(name="kind",value=$kindForm)))))
 // A local, editable pragmatic reading for this correction form. It does not

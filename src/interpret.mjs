@@ -1,8 +1,9 @@
 import { call, term, variable, isTerm, isVariable, values, field, format, substitute } from './ncon.mjs';
 import { digest } from './digest.mjs';
+import { repairSearch } from './repair.mjs';
 
 /** Indexed lexical lattice + bounded construction matching. It makes proposals, never edits input. */
-export function lattice(store, input, profile = '', { maximumSpan = 12, context=term('Context') } = {}) {
+export function lattice(store, input, profile = '', { maximumSpan = 12, context=term('Context'),repair=null } = {}) {
   const units = input.tokens.filter(t => t.kind !== 'space'), edges = [];
   const decoded=store.records('DecodedValue').filter(r=>field(r.expression,'profile','')===profile&&values(field(r.expression,'context',term('Context'))).every(n=>values(context).some(a=>format(n)===format(a))));
   for (let start = 0; start < units.length; start++) {
@@ -19,15 +20,30 @@ export function lattice(store, input, profile = '', { maximumSpan = 12, context=
     if (units[start].kind === 'url') edges.push({ start, end: start + 1, raw: units[start].raw, meaning: term('WebAddress', units[start].raw), score: 1, supports: [], protected: true });
     if(!units[start].protected)for(const r of decoded)if(values(r.expression)[0]===units[start].raw)edges.push({start,end:start+1,raw:units[start].raw,meaning:values(r.expression)[1],score:1,supports:[r.id],protected:false,fragmentOnly:field(r.expression,'fragmentOnly',true)});
   }
+  if(repair)for(let start=0;start<units.length;start++)for(let end=start+1;end<=Math.min(units.length,start+repair.policy.maximumSurfaceSpan);end++){
+    const span=units.slice(start,end);if(span.some(u=>u.protected||u.kind!=='word'))break;
+    const raw=input.source.slice(span[0].start,span.at(-1).end);
+    for(const surface of repair.surfaces){
+      const distance=repair.distance(raw,surface.key);if(distance===null)continue;
+      const hypothesis=repair.hypothesis(raw,surface.key,distance);if(!hypothesis)break;
+      const denotations=store.parts(surface.target,'Denotes');
+      for(const denotation of denotations.length?denotations:[null])edges.push({start,end,raw,meaning:denotation?values(denotation.expression)[0]:term(surface.target),score:surface.weight-hypothesis.penalty,supports:[surface.record,...repair.supports,...(denotation?[denotation.support]:[])],protected:false,fragmentOnly:true,repair:hypothesis});
+    }
+  }
   const unique = new Map();
   for (const edge of edges) {
     const key = `${edge.start}:${edge.end}:${format(edge.meaning)}`, held = unique.get(key);
-    unique.set(key, held ? { ...edge, fragmentOnly:Boolean(edge.fragmentOnly&&held.fragmentOnly), score: Math.max(edge.score, held.score), supports: [...new Set([...edge.supports, ...held.supports])] } : edge);
+    // An exact edge is not made uncertain merely because an approximate route
+    // reaches the same meaning. Keep the winning route's own dependencies.
+    const prefer = !held || (Boolean(held.repair) && !edge.repair) ||
+      (Boolean(held.repair) === Boolean(edge.repair) && edge.score > held.score);
+    if(prefer)unique.set(key,edge);
   }
   return { units, edges: [...unique.values()] };
 }
-export async function propose(store, input, { profile = '', context = term('Context'), maximumStates = 1024, maximumCandidates = 64, maximumSpan = 12, score } = {}) {
-  const lex = lattice(store, input, profile, { maximumSpan,context }), chart = new Map(), indexed = new Map();
+export async function propose(store, input, { profile = '', context = term('Context'), maximumStates = 1024, maximumCandidates = 64, maximumSpan = 12, score,repairPolicy=null } = {}) {
+  const repair=repairPolicy?repairSearch(store,profile,repairPolicy):null;
+  const lex = lattice(store, input, profile, { maximumSpan,context,repair }), chart = new Map(), indexed = new Map();
   let exhausted = false, states = 0, changed = false;
   const normalize = text => text.normalize('NFC').toLowerCase().replace(/\s+/gu, ' ');
   function retain(edge) {
@@ -70,6 +86,10 @@ export async function propose(store, input, { profile = '', context = term('Cont
           for (let end = at + 1; end <= Math.min(lex.units.length, at + maximumSpan); end++) {
             const raw = input.source.slice(lex.units[at].start, lex.units[end - 1].end);
             if (normalize(raw) === normalize(text)) await visit(parts, part + 1, end, start, bindings, supports, evidence + 1, holes, [...consumed, { start: at, end, raw, literal: true }]);
+            else if(repair&&!lex.units.slice(at,end).some(u=>u.protected||u.kind!=='word')&&text.trim().split(/\s+/u).length===end-at){
+              const distance=repair.distance(raw,text),hypothesis=distance===null?null:repair.hypothesis(raw,text,distance);
+              if(hypothesis)await visit(parts,part+1,end,start,bindings,[...supports,...repair.supports],evidence+1-hypothesis.penalty,holes,[...consumed,{start:at,end,raw,literal:true,repair:hypothesis}]);
+            }
           }
           return;
         }
@@ -124,9 +144,9 @@ export async function propose(store, input, { profile = '', context = term('Cont
     const ranking = score ? await score(edge.score, expectation, edge.holes.length) : { value: edge.score, supports: [] };
     candidates.push({ id: digest(edge.rule + '|' + format(edge.meaning)), meaning: edge.meaning,
       supports: [...new Set([...edge.supports, ...ranking.supports, ...(rewardEvidence.support ? [rewardEvidence.support] : [])])].sort(),
-      evidence: edge.score, expectation, score: ranking.value, bindings: edge.bindings, holes: edge.holes, rule: edge.rule, consumed: edge.consumed });
+      evidence: edge.score, expectation, score: ranking.value, bindings: edge.bindings, holes: edge.holes, rule: edge.rule, consumed: edge.consumed,repairs:edge.consumed.filter(e=>e.repair).map(e=>e.repair) });
   }
-  return { ...lex, fragments: [...chart.values()], candidates: candidates.sort((a, b) => b.score - a.score || format(a.meaning).localeCompare(format(b.meaning))), exhausted, graphVersion: store.version };
+  return { ...lex, fragments: [...chart.values()], candidates: candidates.sort((a, b) => b.score - a.score || format(a.meaning).localeCompare(format(b.meaning))), exhausted:exhausted||Boolean(repair?.exhausted),repairExhausted:Boolean(repair?.exhausted), graphVersion: store.version };
 }
 
 /** A labelled lesson derives a reusable construction from uniquely aligned known referents.

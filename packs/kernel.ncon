@@ -18,6 +18,7 @@ Concept(CandidateScore(),
 Concept(InterpretationPolicy(),
   Margin(0.15), MaximumStates(16384), MaximumCandidates(64), MaximumSpan(12))
 Concept(LearningPolicy(), LearningRate(0.2), RequestTimeout(15000), MaximumBytes(1000000), TickBudget(2))
+Concept(AcquisitionPolicy(), CacheMilliseconds(300000))
 
 Concept(Hear(), Realization(Hear($text), body=Native("input.capture", $text)))
 Concept(Interpret(), Realization(Interpret($input, $profile, $context),
@@ -34,3 +35,6 @@ Concept(Speak(),
     body=Native("text.concat", "Several readings remain: ", Native("term.format", Quote($readings)))),
   Realization(Speak(Learning($pending)),
     body=Native("text.concat", "Learning work remains: ", Native("term.format", Quote($pending)))))
+
+// Repairs add competing edges; they never rewrite observations or establish aliases.
+Concept(SurfaceRepairPolicy(),Enabled(1),MinimumCharacters(3),MaximumCharacters(64),MaximumDistance(2),MaximumRatio(0.34),MaximumSurfaceSpan(4),MaximumScans(8192),MaximumProposals(128),Penalty(0.5))

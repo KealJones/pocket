@@ -91,6 +91,12 @@ function history() {
       for (const candidate of candidates) {
         const card = node('div', undefined, 'candidate');
         card.append(node('pre', format(values(candidate)[0])));
+        const repairs=values(field(candidate,'repairs'));
+        if(repairs.length){const hypotheses=node('details');hypotheses.append(node('summary','Proposed spelling readings'));
+          hypotheses.append(node('p','These alternatives helped this interpretation. Your original words are retained; no personal spelling rule was installed.'));
+          for(const repair of repairs)hypotheses.append(node('p',JSON.stringify(values(repair)[0])+' → '+JSON.stringify(values(repair)[1])));
+          card.append(hypotheses);
+        }
         card.append(node('div', `Rank ${Number(field(candidate, 'score')).toFixed(3)} · expectation ${Number(field(candidate, 'expectation')).toFixed(2)}`, 'score'));
         const proof = node('details'); proof.append(node('summary', 'Supporting records'), node('pre', values(field(candidate, 'supports')).map(id => {
           const record = project.store.record(id); return `${id} · ${record?.source ?? 'missing'}\n${record ? format(record.expression) : ''}`;
@@ -108,6 +114,10 @@ function history() {
         reward.append(eLabel, oLabel, button); card.append(reward); details.append(card);
       }
       inspector.append(details);
+    }
+    const rejected=values(field(held?.expression,'contextRejected'));
+    if(rejected.length){const detail=node('details');detail.append(node('summary','Readings still missing context'));
+      for(const candidate of rejected)detail.append(node('pre',format(candidate)));inspector.append(detail);
     }
     const tokens = values(values(values(episode.expression)[0])[1]);
     const raw = node('details'); raw.append(node('summary', 'Original pieces, including spaces'));

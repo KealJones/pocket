@@ -31,6 +31,7 @@ export async function assessAnswer(project,{episode,reading,reply,replyId,analys
   // A checked model program is still a revisable hypothesis about the request.
   const modelReading=best?.supports.some(id=>store.record(id)?.source==='derived:model-concept');
   if(modelReading){grounding=Math.min(grounding,0.65);reasons.push('Interpretation includes model-proposed learning; checks are not independent semantic proof.');}
+  if(best?.repairs?.length){grounding=Math.min(grounding,0.5);reasons.push('Interpretation includes unconfirmed orthographic alternatives; contextual fit does not prove the intended spelling.');}
   const margin=next&&best?best.score-next.score:null;
   const ambiguity=analysis.exhausted?0:!best?0:!next?0.9:Math.max(0,Math.min(0.9,margin/(project.policy('InterpretationPolicy','Margin')*4)));
   if(ambiguity<0.5)reasons.push('Competing or incomplete interpretations reduce confidence.');

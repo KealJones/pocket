@@ -88,3 +88,24 @@ test('timeouts cancel slow requests instead of freezing learning', async () => {
     await assert.rejects(fetchBounded(`http://127.0.0.1:${server.address().port}`, { timeout: 20 }), /abort/i);
   } finally { server.closeAllConnections(); await new Promise(resolve => server.close(resolve)); }
 });
+
+test('empty successful acquisitions are reused, expire, and never close a lexical need', async()=>{
+ const fixture=fixtures({empty:true}),p=new Project({fetcher:fixture.fetcher});
+ try{
+  await p.turn('blorple');const count=fixture.calls.length;
+  const repeat=await p.turn('blorple');assert.equal(repeat.status,'learning');assert.equal(fixture.calls.length,count);
+  assert.ok(p.store.agenda().some(j=>j.query==='blorple'&&j.status==='waiting'));
+  assert.equal(p.store.surfaces('blorple').length,0);
+  p.load('Concept(AcquisitionPolicy(),Revision(1),CacheMilliseconds(0))');await p.turn('blorple');assert.ok(fixture.calls.length>count);
+ }finally{p.close();}
+});
+test('failed requests are retried and source configuration changes bypass retained acquisition results',async()=>{
+ let broken=true;const fixture=fixtures({empty:true}),p=new Project({fetcher:url=>broken?Promise.reject(Error('temporary outage')):fixture.fetcher(url)});
+ try{
+  await p.turn('blorple');assert.equal(p.store.records('Acquisition').filter(r=>['WikidataSource','WiktionarySource'].includes(field(r.expression,'provider')?.head)).length,0);
+  broken=false;await p.turn('blorple');assert.equal(p.store.records('Acquisition').filter(r=>['WikidataSource','WiktionarySource'].includes(field(r.expression,'provider')?.head)).length,2);
+  const count=fixture.calls.length;
+  p.load('Concept(WikidataSource(),Language("fr"))');await p.turn('blorple');assert.ok(fixture.calls.length>count);
+  assert.ok(fixture.calls.some(u=>u.searchParams.get('language')==='fr'));
+ }finally{p.close();}
+});

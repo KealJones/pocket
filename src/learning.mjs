@@ -89,9 +89,9 @@ export class Learner {
       }
     }
   }
-  best(analysis){
+  best(analysis,{allowFallback=true}={}){
     const [best,next]=analysis.candidates;
-    return best&&!best.holes.length&&!analysis.exhausted&&(!next||best.score-next.score>=this.project.policy('InterpretationPolicy','Margin'))?best:null;
+    return best&&!best.holes.length&&!analysis.exhausted&&(allowFallback||!this.store.parts(best.meaning?.head,'LearningFallback').length)&&(!next||best.score-next.score>=this.project.policy('InterpretationPolicy','Margin'))?best:null;
   }
   async realize(expression,steps){
     if(!isTerm(expression)) return;
@@ -122,7 +122,7 @@ export class Learner {
       const visit=x=>{if(!isTerm(x))return;if(x.head==='Literal'&&typeof values(x)[0]==='string')for(const t of capture(values(x)[0]).tokens)if(t.kind==='word')literals.add(t.raw.normalize('NFC').toLowerCase());x.args.forEach(a=>visit(a.value));};
       definition.parts.filter(p=>p.head==='Construction').forEach(visit);
     }
-    const covered=new Set(analysis.edges.flatMap(e=>Array.from({length:e.end-e.start},(_,i)=>i+e.start)));
+    const covered=new Set(analysis.edges.filter(e=>!e.repair).flatMap(e=>Array.from({length:e.end-e.start},(_,i)=>i+e.start)));
     return analysis.units.flatMap((u,i)=>u.kind==='word'&&!u.protected&&!covered.has(i)&&!literals.has(u.raw.normalize('NFC').toLowerCase())?[u.raw]:[]);
   }
   async decode(input,{profile,context,contextSupports=[],deadline},steps){
@@ -158,22 +158,23 @@ export class Learner {
     const maximum=p.policy('RequestLearningPolicy','MaximumPasses'),jobs=p.policy('RequestLearningPolicy','MaximumJobs'),milliseconds=p.policy('RequestLearningPolicy','MaximumMilliseconds');
     if(traceRun)p.trace(traceRun,episode,'learning.independent.started',{acquire,maximumPasses:maximum,maximumJobs:jobs,maximumMilliseconds:milliseconds,reason:'Use retained language, evidence, source examples and implementation lessons before optional teaching'});
     await this.revisitEvidence({budget:p.policy('EvidenceReadingPolicy','RevisitBudget'),profile});
-    let analysis=await p.analyze(input,{profile,context});
+    let analysis=await p.analyze(input,{profile,context,episode});
     // Needs are part of Pocket's own worklist, even with no teacher configured.
     // Preserve the before/after hypotheses and their support rather than using
     // an unstructured "unknown" message as the learning state.
     const gaps=[];
-    if(!this.best(analysis))gaps.push(term(analysis.candidates.length?'ResolveAlternatives':'LearnConstruction'));
+    if(!this.best(analysis,{allowFallback:false}))gaps.push(term(analysis.candidates.length?'RefineInterpretation':'LearnConstruction'));
+    for(const candidate of analysis.contextRejected??[])gaps.push(...candidate.contextProof.needs);
     for(const word of this.unknowns(input,analysis))gaps.push(term('LearnSense',word));
     for(const candidate of analysis.candidates)for(const hole of candidate.holes)gaps.push(term('FillRole',hole));
     const need=gaps.length?this.store.put(call('Need',gaps,{episode,profile,context,phase:'independent',sequence:p.sequence(),hypotheses:term('List',...analysis.candidates.map(c=>p.candidateExpression(c)))}),{source:'derived:learning-need',supports:[episode,...analysis.candidates.flatMap(c=>c.supports)]}):null;
     if(need)await p.onProgress?.({stage:'learning',message:'Pocket is checking source meanings, examples and retained concepts…'});
-    if(!this.best(analysis)){await this.decode(input,{profile,context,contextSupports,deadline:started+milliseconds},steps);analysis=await p.analyze(input,{profile,context});}
+    if(!this.best(analysis,{allowFallback:false})){await this.decode(input,{profile,context,contextSupports,deadline:started+milliseconds},steps);analysis=await p.analyze(input,{profile,context,episode});}
     for(let pass=0;pass<maximum&&Date.now()-started<milliseconds;pass++) {
       this.bindSenses();this.activateFrames(analysis);
-      if(analysis.graphVersion!==this.store.version) analysis=await p.analyze(input,{profile,context});
+      if(analysis.graphVersion!==this.store.version) analysis=await p.analyze(input,{profile,context,episode});
       const chosen=this.best(analysis);
-      if(chosen){await this.realize(chosen.meaning,steps);break;}
+      if(chosen&&!this.store.parts(chosen.meaning?.head,'LearningFallback').length){await this.realize(chosen.meaning,steps);break;}
       if(!acquire||!p.online||attempted.size>=jobs) break;
       const frontier=this.unknowns(input,analysis);
       const current=this.store.agenda().filter(j=>j.kind==='composition'&&j.query===input.source||j.kind==='lexical'&&frontier.includes(j.query));
@@ -185,15 +186,15 @@ export class Learner {
       attempted.add(job.id);
       if(traceRun)p.trace(traceRun,episode,'learning.job.selected',{job:job.id,kind:job.kind,query:job.query,reason:job.kind==='composition'?'Seek independent example outcomes first':'Acquire a currently uncovered lexical sense',alternatives:current.filter(j=>!attempted.has(j.id)).slice(0,8).map(j=>({id:j.id,kind:j.kind,query:j.query}))});
       steps.push(...await p.tick({budget:1,jobs:[job],timeout:Math.max(1,milliseconds-(Date.now()-started))}));
-      analysis=await p.analyze(input,{profile,context});
+      analysis=await p.analyze(input,{profile,context,episode});
     }
     // Last acquired evidence must be usable even at the final worklist boundary.
-    this.bindSenses();analysis=await p.analyze(input,{profile,context});this.activateFrames(analysis);
-    analysis=await p.analyze(input,{profile,context});
+    this.bindSenses();analysis=await p.analyze(input,{profile,context,episode});this.activateFrames(analysis);
+    analysis=await p.analyze(input,{profile,context,episode});
     const chosen=this.best(analysis);if(chosen)await this.realize(chosen.meaning,steps);
     const run=this.store.put(call('LearningRun',[input.expression],{episode,sequence:p.sequence(),steps:term('List',...steps.map(s=>call('LearningStep',[s.query],{kind:s.kind,status:s.status,detail:s.detail??'',evidence:s.evidence??null}))),elapsed:Date.now()-started}),{source:'derived:learning-run',supports:[episode,...steps.flatMap(s=>s.evidence?[s.evidence]:[]),...this.store.parts('RequestLearningPolicy').map(p=>p.support)]});
     if(traceRun)p.trace(traceRun,episode,'learning.independent.completed',{run,need,chosen:chosen?format(chosen.meaning):null,elapsed:Date.now()-started,steps:steps.map(s=>({kind:s.kind,query:s.query,status:s.status,detail:s.detail??'',evidence:s.evidence??null}))});
-    if(need)this.store.put(call('NeedStatus',[],{need,status:chosen?'interpreted':'open',hypotheses:term('List',...analysis.candidates.map(c=>p.candidateExpression(c))),sequence:p.sequence()}),{source:'derived:need-status',supports:[need,run,...analysis.candidates.flatMap(c=>c.supports)]});
+    if(need)this.store.put(call('NeedStatus',[],{need,status:this.best(analysis,{allowFallback:false})?'interpreted':'open',hypotheses:term('List',...analysis.candidates.map(c=>p.candidateExpression(c))),sequence:p.sequence()}),{source:'derived:need-status',supports:[need,run,...analysis.candidates.flatMap(c=>c.supports)]});
     return {analysis,attempts:steps};
   }
 }

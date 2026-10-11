@@ -68,7 +68,7 @@ test('the browser SQLite engine retains research and a newly taught text questio
 });
 test('unfamiliar question forms search the whole question and label their evidence as an excerpt',async()=>{
  const fixture=source(),p=new Project({fetcher:fixture.fetcher});try{
-  const reply=(await p.turn('how do moons form?')).reply;assert.equal(field(reply,'research'),'excerpt');assert.match(field(reply,'text'),/closest Wikipedia page/);assert.ok(fixture.calls.some(u=>u.searchParams.get('srsearch')==='how do moons form'));assert.ok(!fixture.calls.some(u=>u.searchParams.get('search')==='moons'));
+  const reply=(await p.turn('how do moons form?')).reply;assert.equal(field(reply,'research'),'excerpt');assert.match(field(reply,'text'),/closest Wikipedia page/);assert.ok(fixture.calls.some(u=>u.searchParams.get('srsearch')==='how do moons form'));assert.ok(fixture.calls.some(u=>u.searchParams.get('search')==='moons'));assert.equal(p.store.records('KnowledgeFact').length,0);
  }finally{p.close();}
 });
 test('a source revision replaces learned facts and withdraws answers that depended on the old revision',async()=>{

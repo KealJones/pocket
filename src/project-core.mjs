@@ -12,6 +12,7 @@ import { Research } from './research.mjs';
 import { assessAnswer } from './assessment.mjs';
 import { ModelLearner } from './model-learning.mjs';
 import { Learner } from './learning.mjs';
+import { gateContext, previousTarget, readingMeanings } from './contextual-eligibility.mjs';
 import { term, call, values, field, isTerm, format, parse, parseMany, match } from './ncon.mjs';
 
 const assertNumber = n => { if (typeof n !== 'number' || !Number.isFinite(n)) throw new TypeError('Expected finite number'); return n; };
@@ -162,12 +163,12 @@ export class ProjectCore {
     });
   }
   validateEvidence(expressions) {
-    const forbidden = new Set(['LearnableType','MemoryObject','MemoryBinding','MemoryAttention','MemoryRetention','MemoryScore','FocusWindow','MaximumMemoryObjects','RecipeFact','Scope','IngredientSection','ProcedureSection','OptionalMarker','AnswerAssessment','AnswerRequirement','ReviewBelow','NoTeacherReview','LearningFallback','ModelLearningPolicy','ConstructionWeight','MaximumAttempts','AttributedMeaning','EvidenceReading','EvidenceObservation','MaximumPassages','RevisitBudget','MaximumSearchPages','MaximumRelatedProperties','RelationPath','RelationBinding','ContextualArgument','ArgumentHint','ContextFor','RejectedReply','MaximumMeasurements','ReadForm','ContextHint','Clarification','DecodedValue','Frame','ImplementationLesson','SenseIdentity','ValueMapping','MaximumPasses','MaximumJobs','MaximumDecodings','MaximumMilliseconds','MaximumTypeDepth','MaximumTypeNodes','TypeEvidence','Realization', 'Construction', 'Native', 'ValidatedProgram', 'ValidatedRealization', 'StarterProcedure', 'StarterLesson', 'Capability', 'Arity', 'Commutative', 'MinimumExamples', 'MaximumExpressions', 'MaximumReusableBlocks', 'MaximumProcedureInspections', 'Adapter', 'Endpoint', 'Revision', 'Priority', 'LearningRate', 'Margin', 'MaximumStates', 'MaximumCandidates', 'MaximumSpan', 'RequestTimeout', 'MaximumBytes', 'TickBudget','MaximumRequests','MaximumResearchMilliseconds','SearchLimit','CacheMilliseconds','EndTimeProperty','PointInTimeProperty','ResearchAnswer','KnowledgeFact']);
+    const forbidden = new Set(['AcquisitionPolicy','SurfaceRepairPolicy','Enabled','MinimumCharacters','MaximumCharacters','MaximumDistance','MaximumRatio','MaximumSurfaceSpan','MaximumScans','MaximumProposals','Penalty','SurfaceRepair','ContextRequirement','PreviousAllowsHint','LearnableType','MemoryObject','MemoryBinding','MemoryAttention','MemoryRetention','MemoryScore','FocusWindow','MaximumMemoryObjects','RecipeFact','Scope','IngredientSection','ProcedureSection','OptionalMarker','AnswerAssessment','AnswerRequirement','ReviewBelow','NoTeacherReview','LearningFallback','ModelLearningPolicy','ConstructionWeight','MaximumAttempts','AttributedMeaning','EvidenceReading','EvidenceObservation','MaximumPassages','RevisitBudget','MaximumSearchPages','MaximumRelatedProperties','RelationPath','RelationBinding','ContextualArgument','ArgumentHint','ContextFor','RejectedReply','MaximumMeasurements','ReadForm','ContextHint','Clarification','DecodedValue','Frame','ImplementationLesson','SenseIdentity','ValueMapping','MaximumPasses','MaximumJobs','MaximumDecodings','MaximumMilliseconds','MaximumTypeDepth','MaximumTypeNodes','TypeEvidence','Realization', 'Construction', 'Native', 'ValidatedProgram', 'ValidatedRealization', 'StarterProcedure', 'StarterLesson', 'Capability', 'Arity', 'Commutative', 'MinimumExamples', 'MaximumExpressions', 'MaximumReusableBlocks', 'MaximumProcedureInspections', 'Adapter', 'Endpoint', 'Revision', 'Priority', 'LearningRate', 'Margin', 'MaximumStates', 'MaximumCandidates', 'MaximumSpan', 'RequestTimeout', 'MaximumBytes', 'TickBudget','MaximumRequests','MaximumResearchMilliseconds','SearchLimit','CacheMilliseconds','EndTimeProperty','PointInTimeProperty','ResearchAnswer','KnowledgeFact']);
     const visit = expression => { if (!isTerm(expression)) return; if (forbidden.has(expression.head)) throw new Error('Evidence cannot install behavior or policy: ' + expression.head); for (const a of expression.args) visit(a.value); };
     for (const expression of expressions) visit(expression);
   }
-  async analyze(input, { profile = this.profile, context = term('Context') } = {}) {
-    return propose(this.store, input, {
+  async analyze(input, { profile = this.profile, context = term('Context'), episode, repair=true } = {}) {
+    const options={
       profile, context, maximumStates: this.policy('InterpretationPolicy', 'MaximumStates'),
       maximumCandidates: this.policy('InterpretationPolicy', 'MaximumCandidates'), maximumSpan: this.policy('InterpretationPolicy', 'MaximumSpan'),
       score: async (evidence, expectation, holes) => {
@@ -175,10 +176,17 @@ export class ProjectCore {
         if (typeof evaluation.value !== 'number') throw new Error('CandidateScore must realize to a number');
         return { value: evaluation.value, supports: evaluation.trace.map(t => t.support).filter(Boolean) };
       }
-    });
+    };
+    let analysis=gateContext(this.store,await propose(this.store,input,options),{profile,episode});
+    if(repair&&!values(context).some(c=>c?.head==='SourceEvidence')&&this.policy('SurfaceRepairPolicy','Enabled')&&!this.learner.best(analysis,{allowFallback:false})){
+      const fields={minimumCharacters:'MinimumCharacters',maximumCharacters:'MaximumCharacters',maximumDistance:'MaximumDistance',maximumRatio:'MaximumRatio',maximumSurfaceSpan:'MaximumSurfaceSpan',maximumScans:'MaximumScans',maximumProposals:'MaximumProposals',penalty:'Penalty'};
+      const repairPolicy=Object.fromEntries(Object.entries(fields).map(([key,value])=>[key,this.policy('SurfaceRepairPolicy',value)]));
+      analysis=gateContext(this.store,await propose(this.store,input,{...options,repairPolicy}),{profile,episode});
+    }
+    return analysis;
   }
   candidateExpression(candidate) {
-    return call('Candidate', [candidate.meaning], { id: candidate.id, rule: candidate.rule, score: candidate.score, expectation: candidate.expectation, supports: term('List', ...candidate.supports), holes: term('List', ...candidate.holes) });
+    return call('Candidate', [candidate.meaning], { id: candidate.id, rule: candidate.rule, score: candidate.score, expectation: candidate.expectation, supports: term('List', ...candidate.supports), holes: term('List', ...candidate.holes),repairs:term('List',...(candidate.repairs??[]).map(r=>call('SurfaceRepair',[r.raw,r.expected],{distance:r.distance}))) });
   }
   contextualize(candidate,context){
     if(!isTerm(candidate.meaning))return candidate;
@@ -194,7 +202,7 @@ export class ProjectCore {
   trace(run,episode,kind,detail){return this.store.appendTrace({run,episode,kind,detail});}
   traceAnalysis(run,episode,kind,analysis){
     this.trace(run,episode,kind,{graphVersion:analysis.graphVersion,exhausted:analysis.exhausted,candidateCount:analysis.candidates.length,
-      candidates:analysis.candidates.slice(0,8).map(c=>({id:c.id,meaning:format(c.meaning).slice(0,2000),rule:c.rule,score:c.score,expectation:c.expectation,holes:c.holes.slice(0,16).map(h=>format(h).slice(0,200)),supports:c.supports.slice(0,32),bindings:Object.fromEntries(Object.entries(c.bindings??{}).slice(0,8).map(([key,value])=>[key,format(value).slice(0,600)]))})),truncated:analysis.candidates.length>8});
+      candidates:analysis.candidates.slice(0,8).map(c=>({id:c.id,meaning:format(c.meaning).slice(0,2000),rule:c.rule,score:c.score,expectation:c.expectation,holes:c.holes.slice(0,16).map(h=>format(h).slice(0,200)),supports:c.supports.slice(0,32),bindings:Object.fromEntries(Object.entries(c.bindings??{}).slice(0,8).map(([key,value])=>[key,format(value).slice(0,600)]))})),contextRejected:(analysis.contextRejected??[]).slice(0,8).map(c=>({meaning:format(c.meaning),needs:c.contextProof.needs.map(format)})),truncated:analysis.candidates.length>8});
   }
   async reviewLearning(episodeId){
     if(!this.online||!this.modelLearner?.enabled)throw new Error('Enable online learning and optional Gemini help to review this process.');
@@ -228,7 +236,7 @@ export class ProjectCore {
     const traceRun='run-'+digest(episodeId+'|'+this.store.traces({limit:1}).at(-1)?.sequence+'|'+Date.now());
     this.trace(traceRun,episodeId,'request.started',{text,profile,context:format(context),learn,teacherEnabled:Boolean(this.modelLearner?.enabled),resumed:Boolean(episode)});
     try {
-    let analysis = await this.analyze(input, { profile, context });
+    let analysis = await this.analyze(input, { profile, context, episode:episodeId });
     this.traceAnalysis(traceRun,episodeId,'interpretation.initial',analysis);
     const queueGaps = () => {
       const covered = new Set([...analysis.edges, ...analysis.candidates.flatMap(c => c.consumed)].flatMap(edge => Array.from({ length: edge.end - edge.start }, (_, i) => edge.start + i)));
@@ -236,12 +244,12 @@ export class ProjectCore {
         const unit = analysis.units[i];
         if (!covered.has(i) && unit.kind === 'word' && !unit.protected) this.store.enqueue(unit.raw, 'lexical');
       }
-      if (!analysis.candidates.length || analysis.candidates.some(c => c.holes.length) || analysis.exhausted) this.store.enqueue(text, 'composition');
+      if (!this.learner.best(analysis,{allowFallback:false})) this.store.enqueue(text, 'composition');
       else if (analysis.candidates.length > 1) this.store.enqueue(text, 'interpretation');
     };
     queueGaps();
     let assistance;
-    const needsAcquisition=!analysis.candidates.length||analysis.candidates.some(c=>c.holes.length)||analysis.exhausted;
+    const needsAcquisition=!this.learner.best(analysis,{allowFallback:false});
     const learned=await this.learner.request(input,{profile,context,contextSupports,acquire:learn&&needsAcquisition,episode:episodeId,traceRun});
     analysis=learned.analysis;
     const attempts=learned.attempts;
@@ -250,9 +258,9 @@ export class ProjectCore {
     // must also run its own source plan before asking the optional teacher.
     if(learn && assisted && this.modelLearner && !this.learner.best(analysis)){
       assistance=await this.modelLearner.assist({input,analysis,episode:episodeId,profile,context,traceRun});
-      if(assistance.changed)analysis=await this.analyze(input,{profile,context});
+      if(assistance.changed)analysis=await this.analyze(input,{profile,context,episode:episodeId});
     }
-    if (analysis.graphVersion !== this.store.version) { analysis = await this.analyze(input, { profile, context }); queueGaps(); }
+    if (analysis.graphVersion !== this.store.version) { analysis = await this.analyze(input, { profile, context, episode:episodeId }); queueGaps(); }
     analysis.candidates=analysis.candidates.map(c=>this.contextualize(c,context));
     const margin = this.policy('InterpretationPolicy', 'Margin'), [best, next] = analysis.candidates;
     // Budget exhaustion prevents committing even if the explored prefix has one winner.
@@ -261,7 +269,7 @@ export class ProjectCore {
     this.traceAnalysis(traceRun,episodeId,'interpretation.final',analysis);
     this.trace(traceRun,episodeId,'decision.selected',{status,meaning:status==='resolved'?format(best.meaning):null,margin:next&&best?best.score-next.score:null,requiredMargin:margin,reason:analysis.exhausted?'Search budget exhausted':!best?'No complete reading':best.holes.length?'Required roles remain open':status==='ambiguous'?'Candidate separation is below the margin':'Complete reading exceeds the selection margin',policySupports:this.store.parts('InterpretationPolicy').map(p=>p.support)});
     const supports = [...new Set([episodeId,...contextSupports, ...this.store.parts('InterpretationPolicy').map(p => p.support), ...analysis.candidates.flatMap(c => c.supports)])];
-    const readingId = this.store.put(call('Reading', [result], { episode: episodeId, sequence: this.sequence(), graphVersion: analysis.graphVersion, readings: term('List', ...analysis.candidates.map(c => this.candidateExpression(c))) }), { source: 'derived:interpretation', supports });
+    const readingId = this.store.put(call('Reading', [result], { episode: episodeId, sequence: this.sequence(), graphVersion: analysis.graphVersion, readings: term('List', ...analysis.candidates.map(c => this.candidateExpression(c))), contextRejected:term('List',...(analysis.contextRejected??[]).map(c=>call('ContextRejected',[this.candidateExpression(c)],{needs:term('List',...c.contextProof.needs)}))) }), { source: 'derived:interpretation', supports });
     if(status==='resolved'&&isTerm(best.meaning)&&this.store.isA(best.meaning.head,'Assertion')){
       this.store.put(call('AttributedMeaning',[best.meaning],{observation:episodeId,document:episodeId,profile,text:input.source,url:null,license:'user-statement'}),{source:'derived:user-assertion',supports:[readingId,...this.store.typeProof(best.meaning.head,'Assertion')]});
     }
@@ -274,14 +282,8 @@ export class ProjectCore {
       const hintRun=await this.evaluator.evaluate(term('ContextFor',best.meaning));
       const features=[...hints.flatMap(h=>values(h.expression)),...(hintRun.value?.head==='Context'?values(hintRun.value):[])];
       const correction=this.store.isA(best.meaning.head,'Correction');
-      let previous=this.store.records('Episode').filter(r=>r.id!==episodeId&&field(r.expression,'profile','')===profile).sort((a,b)=>field(b.expression,'sequence',0)-field(a.expression,'sequence',0))[0];
-      const adjacentReply=previous&&this.store.records('Reply').filter(r=>field(r.expression,'episode')===previous.id).sort((a,b)=>field(b.expression,'sequence',0)-field(a.expression,'sequence',0))[0];
-      const continuing=field(values(adjacentReply?.expression)[0],'clarifiedEpisode');
-      const target=continuing&&this.store.record(continuing);
-      if(target?.active&&target.expression.head==='Episode'&&field(target.expression,'profile','')===profile)previous=target;
-      const priorReading=previous&&this.store.records('Reading').filter(r=>field(r.expression,'episode')===previous.id).sort((a,b)=>field(b.expression,'sequence',0)-field(a.expression,'sequence',0))[0];
-      const priorReply=previous&&this.store.records('Reply').filter(r=>field(r.expression,'episode')===previous.id).sort((a,b)=>field(b.expression,'sequence',0)-field(a.expression,'sequence',0))[0];
-      const priorMeanings=values(field(priorReading?.expression,'readings',term('List'))).map(c=>values(c)[0]);
+      const preceding=previousTarget(this.store,{profile,episode:episodeId}),previous=preceding.episode,priorReading=preceding.reading,priorReply=preceding.reply;
+      const priorMeanings=readingMeanings(priorReading);
       const applicable=features.every(h=>h.head!=='ArgumentHint'||priorMeanings.some(m=>isTerm(m)&&this.store.parts(m.head,'ContextualArgument').some(p=>values(p.expression)[0]===field(h,'name'))));
       if(features.length&&applicable&&previous&&priorReading&&(correction||values(priorReading.expression)[0].head!=='Resolved'||field(values(priorReply?.expression)[0],'pending',false))){
         clarification=this.store.put(call('Clarification',[],{episode:episodeId,target:previous.id,context:term('Context',...features),sequence:this.sequence()}),
@@ -319,7 +321,7 @@ export class ProjectCore {
       replyId=this.store.put(call('Reply',[reply],{episode:episodeId,reading:readingId,sources:term('List'),sequence:this.sequence()}),{source:'derived:clarification-request',supports:[readingId,assistance.need]});
       assessment=await assessAnswer(this,{episode:episodeId,reading:readingId,reply,replyId,analysis,status:'learning'});
     }
-    if (status === 'resolved') {
+    if (status === 'resolved'&&!this.store.parts(best.meaning?.head,'LearningFallback').length) {
       for (const job of this.store.agenda().filter(j => j.query === text && ['composition', 'interpretation'].includes(j.kind))) this.store.updateJob(job.id, 'done', 'Resolved by supported evidence');
     }
     this.trace(traceRun,episodeId,'request.completed',{reading:readingId,reply:replyId,assessment:assessment.id,score:assessment.score,status:retry?.status??(field(reply,'pending',false)?'learning':status),reasons:assessment.reasons});
@@ -429,7 +431,7 @@ export class ProjectCore {
         }
         if (job.kind === 'composition') {
           const reading = await this.analyze(capture(job.query));
-          if (!reading.exhausted && reading.candidates.length === 1 && !reading.candidates[0].holes.length) {
+          if (this.learner.best(reading,{allowFallback:false})) {
             this.store.updateJob(job.id,'done','Resolved by retained learning'); attempts.push(this.store.job(job.id)); continue;
           }
         }
@@ -449,11 +451,24 @@ export class ProjectCore {
             const context = episode ? values(values(episode.expression)[0])[0] : job.query;
             if (job.kind === 'composition' && !['dataset-examples','worked-examples'].includes(source.adapter)) continue;
             if (job.kind === 'lexical' && ['dataset-examples','worked-examples'].includes(source.adapter)) continue;
+            // Lexical adapters consume the query; example adapters consume the
+            // current utterance and must not reuse results across different tasks.
+            const sourceSupports = this.store.parts(source.identity).map(p => p.support);
+            const configuration = digest(source.parts.map(format).sort().join('\n'));
+            const cached = job.kind === 'lexical' && this.store.records('Acquisition').find(r =>
+              values(r.expression)[0] === job.query && field(r.expression,'provider')?.head === source.identity &&
+              field(r.expression,'configuration') === configuration &&
+              Date.now() - field(r.expression,'receivedAt',0) < this.policy('AcquisitionPolicy','CacheMilliseconds') &&
+              Date.now() >= field(r.expression,'receivedAt',0));
+            if (cached) {
+              details.push(`${source.identity}: reused successful acquisition (${field(cached.expression,'records',0)} records; not proof of a sense)`);
+              continue;
+            }
             const acquired = await this.sources.acquire(job.query, source, { context });
             this.validateEvidence(acquired.records);
             const rawSupports = [];
             this.store.transaction(() => {
-              const acquisition = this.store.put(call('Acquisition', [job.query], { provider: term(source.identity), url: acquired.queryUrl??null, license: source.license, sequence: this.sequence() }), { source: 'source:' + source.identity });
+              const acquisition = this.store.put(call('Acquisition', [job.query], { provider: term(source.identity), url: acquired.queryUrl??null, license: source.license, configuration, receivedAt:Date.now(), records:acquired.records.length, sequence: this.sequence() }), { source: 'source:' + source.identity, supports:sourceSupports });
               for (const expression of acquired.records.filter(e => e.head !== 'Concept')) {
                 rawSupports.push(this.store.put(expression, { source: 'source:' + source.identity, supports: [acquisition] })); raw = true;
               }
