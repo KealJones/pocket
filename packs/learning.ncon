@@ -11,10 +11,12 @@ Concept(InductionPolicy(),MinimumExamples(2),MaximumExpressions(1024),MaximumReu
 Concept(DefinitionWord(),Surface("means"),
  Frame(pattern=List(Slot($form,capture="text",maximumSpan=4),Lexeme(DefinitionWord()),Slot($definition,capture="text",maximumSpan=8),Optional(Literal("."))),meaning=DefineForm($form,$definition),weight=14))
 Concept(PersonalDefinition(),Construction(pattern=List(Literal("when I say"),Slot($form,capture="text",maximumSpan=4),Literal("I mean"),Slot($definition,capture="text",maximumSpan=8),Optional(Literal("."))),meaning=DefineForm($form,$definition),weight=14))
-Concept(DefineForm(),IsA(Request()),NoTeacherReview())
+Concept(DefineForm(),IsA(Assertion()),LearningAssertion("lexical-reference"),NoTeacherReview())
 Concept(FormLearning(),NoTeacherReview())
 Concept(RespondTo(),
  Realization(RespondTo(DefineForm($form,$definition)),body=Let($receipt,Native("learning.observe-definition",$form,$definition),RespondTo($receipt))),
  Realization(RespondTo(FormLearning($form,$definition,known=true,withdrawn=false)),body=Native("reply.make",Native("text.concat","I retained your definition of ",$form," as ",$definition,". I will use it as a possible reading in context."),null)),
  Realization(RespondTo(FormLearning($form,$definition,known=false,withdrawn=false)),body=Native("reply.pending",Native("text.concat","I retained your definition of ",$form," as ",$definition,". I still need to understand that reference; the learning work stays open."))),
  Realization(RespondTo(FormLearning($form,$definition,known=false,withdrawn=true)),body=Replied(text="That definition was withdrawn. Tell me a new definition to teach it again.",pending=true)))
+// Additional relational forms reuse the same frame and learning assertion.
+Concept(DefinitionWord(),Surface("is a synonym of"),Surface("is another word for"),Surface("stands for"))

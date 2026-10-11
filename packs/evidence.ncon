@@ -34,3 +34,6 @@ Concept(MethodRequest(),Surface("how do I"),Surface("how can I"),Surface("how to
 Concept(ResolutionVerb(),Surface("handle"),Surface("manage"),Surface("mitigate"),Surface("resolve"),Surface("fix"))
 Concept(MethodComposition(),Construction(pattern=List(Lexeme(MethodRequest()),Lexeme(ResolutionVerb()),Slot($subject,capture="text"),Optional(Literal("?"))),meaning=GuidanceQuestion(situation=Situation(subject=$subject)),weight=3))
 Concept(MethodComposition(),Construction(pattern=List(Lexeme(MethodRequest()),Lexeme(ResolutionVerb()),Literal("a"),Slot($subject,capture="text"),Optional(Literal("?"))),meaning=GuidanceQuestion(situation=Situation(subject=$subject)),weight=7))
+
+// Source punctuation marks do not depend on the next word being capitalized.
+Concept(EvidenceReadingPolicy(),PassageBoundary("."),PassageBoundary("!"),PassageBoundary("?"))

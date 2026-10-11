@@ -146,3 +146,79 @@ test('conflicting personal definitions keep competing senses and protected code 
  assert.equal((await p.turn('`florp`',{learn:false})).status,'learning');
  }finally{p.close();}
 });
+
+test('source prose definitions use the shared reader, retain unrelated learning, and never execute it',async()=>{
+ let fetched=0;const p=new Project({online:false,profile:'keal',fetcher:()=>{fetched++;throw Error('Source meaning must not fetch');}});try{
+ p.load(lesson);const text='florp means greet. glorp means hello. Opaque unrelated vocabulary.';
+ const document=p.store.put(call('SourceExcerpt',[text],{url:'https://example.org/definitions',license:'CC0-1.0'}));
+ await p.learner.readEvidence(document);assert.equal(p.store.records('LexicalDefinition').length,2);assert.equal(fetched,0);assert.equal(p.store.parts('Greet','Realization').length,0);
+ assert.equal((await p.turn('glorp',{learn:false})).status,'resolved');assert.equal(field((await p.turn('florp Emmy',{learn:false})).reply,'text'),'Hello, Emmy()');
+ const definitions=p.store.records('LexicalDefinition');assert.ok(definitions.every(r=>field(r.expression,'attribution')));
+ const turn=await p.turn('florp Greg',{learn:false});p.store.retract(document);assert.equal(p.store.record(turn.replyId).active,false);
+ assert.equal(p.store.record(turn.episodeId).active,true);
+ }finally{p.close();}
+});
+
+test('source assertion withdrawal stays withdrawn on review and a missing reference queues the same lexical work',async()=>{
+ const p=new Project({online:false,profile:'keal'});try{
+ const document=p.store.put(call('SourceExcerpt',['florp means unknownbleep.'],{url:'https://example.org/definition'}));await p.learner.readEvidence(document);
+ assert.ok(p.store.agenda().some(j=>j.query==='unknownbleep'&&j.kind==='lexical'));
+ const definition=p.store.records('LexicalDefinition')[0];assert.ok(definition);p.store.retract(definition.id);
+ await p.learner.readEvidence(document);assert.equal(p.store.records('LexicalDefinition').length,0);
+ for(const text of ['Do not florp means hello.','`florp means hello`']){
+ const id=p.store.put(call('SourceExcerpt',[text]));await p.learner.readEvidence(id);
+ }
+ assert.equal(p.store.records('LexicalDefinition').length,0);
+ assert.throws(()=>p.load('Concept(Evil(),LearningAssertion("lexical-reference"))',{trusted:false}),/Evidence cannot install/);
+ }finally{p.close();}
+});
+
+function excerptSource(){const calls=[];return {calls,fetcher:async url=>{
+ const u=new URL(url);calls.push(u);const q=u.searchParams;
+ if(q.get('action')==='wbsearchentities')return Response.json({search:[]});
+ if(q.get('action')==='wbgetentities')return Response.json({entities:{}});
+ if(u.hostname==='datasets-server.huggingface.co')return Response.json({rows:[]});
+ if(q.get('list')==='search')return Response.json({query:{search:[{title:'Example lexicon'}]}});
+ if(q.get('prop')?.includes('extracts'))return Response.json({query:{pages:[{title:'Example lexicon',extract:'florp means greet.',fullurl:'https://en.wikipedia.org/wiki/Example_lexicon',revisions:[{revid:7}],pageprops:{}}]}});
+ return Response.json({query:{pages:[]}});
+}};}
+
+test('new language in a retrieved excerpt reinterprets the original request, checks execution, and answers in that request',async()=>{
+ const f=excerptSource(),p=new Project({profile:'keal',fetcher:f.fetcher});try{
+ p.load(lesson);const turn=await p.turn('what is florp Greg?');assert.equal(field(turn.reply,'text'),'Hello, Greg()');assert.equal(turn.status,'resolved');
+ assert.equal(turn.input.source,'what is florp Greg?');assert.equal(p.store.records('Episode').length,1);
+ assert.equal(p.store.records('LexicalDefinition').length,1);assert.equal(p.store.records('SourceExcerpt').length,1);
+ assert.ok(p.store.traces({episode:turn.episodeId,limit:1000}).some(t=>t.kind==='request.retry'&&t.detail.reason.includes('Source learning')));
+ assert.equal(p.modelLearner,null);const calls=f.calls.length;p.online=false;
+ assert.equal(field((await p.turn('what is florp Emmy?')).reply,'text'),'Hello, Emmy()');assert.equal(f.calls.length,calls);
+ }finally{p.close();}
+});
+
+test('lowercase passage boundaries preserve protected quotes, fenced code, URLs and decimal tokens',async()=>{
+ const p=new Project({online:false,profile:'keal'});try{
+ const text='florp means hello. glorp means thanks. ```hidden means hello. otherhidden means thanks.``` “quoted means hello. anotherquoted means thanks.” number means 5.4.';
+ const document=p.store.put(call('SourceExcerpt',[text]));await p.learner.readEvidence(document);
+ assert.deepEqual(p.store.records('LexicalDefinition').map(r=>values(r.expression)[0]).sort(),['florp','glorp']);
+ for(const observation of p.store.records('EvidenceObservation')){const raw=values(values(observation.expression)[0])[0];assert.equal(text.slice(field(observation.expression,'start'),field(observation.expression,'end')),raw);assert.notEqual(raw.trim(),'4.');}
+ assert.equal(p.store.surfaces('hidden','keal').length,0);assert.equal(p.store.surfaces('quoted','keal').length,0);
+ }finally{p.close();}
+});
+
+test('source reinterpretation obeys its authored bound and leaves reusable learning when disabled',async()=>{
+ const f=excerptSource(),p=new Project({profile:'keal',fetcher:f.fetcher});try{
+ p.load(lesson);p.load('Concept(RequestLearningPolicy(),Revision(1),MaximumReinterpretations(0))');
+ const first=await p.turn('what is florp Greg?');assert.equal(field(first.reply,'research'),'excerpt');assert.equal(p.store.records('LexicalDefinition').length,1);
+ p.online=false;assert.equal(field((await p.turn('what is florp Emmy?')).reply,'text'),'Hello, Emmy()');
+ }finally{p.close();}
+});
+
+test('negation scopes over definitions and protected actions instead of becoming a positive named form',async()=>{
+ let fetched=0;const p=new Project({online:false,profile:'keal',fetcher:()=>{fetched++;throw Error('Negation must not execute');}});try{
+ p.load(lesson);for(const text of ['do not florp means greet','not florp means greet','never florp means greet']){
+ const id=p.store.put(call('SourceExcerpt',[text]));await p.learner.readEvidence(id);
+ }
+ assert.equal(p.store.records('LexicalDefinition').length,0);
+ const turn=await p.turn('do not fetch https://example.org');assert.match(format(turn.result),/Negated/);assert.equal(fetched,0);
+ assert.equal(p.store.surfaces('florp','keal').length,0);
+ }finally{p.close();}
+});

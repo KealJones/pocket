@@ -834,3 +834,35 @@ readings. Replaying an explicitly withdrawn definition cannot silently reinstate
 it. A new explicit statement can teach it again. The initial constructions accept
 bounded unquoted word/phrase references; arbitrary prose definitions and protected
 code still need adequate readers and learning evidence.
+
+### Attributed learning and response re-entry (0.13.2)
+
+`DefineForm` is an assertion. Its authored `LearningAssertion("lexical-reference")`
+contract allows the source reader to retain a scoped lexical claim from a
+committed, attributed source meaning using the same sense constructor as user
+teaching. The host dispatches a formal data-reader contract, not English words or
+question types. Missing references join the shared lexical worklist. Withdrawn
+claims stay withdrawn on review. Ordinary source actions are not asserted facts:
+source attribution now requires a supported `Assertion` type proof, and losing
+that proof invalidates the attribution and dependents.
+
+Configured `PassageBoundary` marks complement source sentence segmentation without
+requiring capitalization. They retain every source byte and exact offsets, and
+never split protected quotes, code, URLs or decimal tokens. Passage identity uses
+both start and end, allowing a revised boundary model to revisit retained text.
+This is a mechanical source reader, not a general discourse parser; punctuation,
+abbreviations and scope can still need further learned interpretation.
+
+Retrieval can teach language after the initial reading. A pending response whose
+language evidence changed re-enters the ordinary independent learner before
+optional model teaching. If it now supports a different complete reading, Pocket
+retries the same original observation, checks its realization and returns that
+result. `MaximumReinterpretations` bounds this process. Unchanged previews and
+completed actions are not automatically repeated. Earlier replies remain in
+inactive audit history. The mechanism is independent of the question's domain.
+
+An authored `NegationWord` frame scopes a protected meaning beneath `Negated`.
+That result is not an assertion or an executable positive request. It prevents
+a loose definition-name slot from treating `do not`, `don't`, `not`, or `never`
+as part of a newly learned positive name. This bootstrap construction is not a
+complete model of natural-language negation or discourse scope.

@@ -165,7 +165,7 @@ export class ProjectCore {
     });
   }
   validateEvidence(expressions) {
-    const forbidden = new Set(['LexicalDefinition','FormLearning','DefineForm','DictionaryLearningPolicy','MaximumSenses','MaximumDefinitionCharacters','MaximumReferenceCharacters','MaximumReferenceWords','MaximumReferenceDepth','MaximumRoutes','MaximumRouteInspections','DocumentReader','MeaningSection','LanguageSection','DefinitionPrefix','TemplateMapping','UnresolvedSense','LexicalEquivalent','DefinitionParaphrase','DictionarySense','DictionaryExample','DictionaryObservation','TeacherTimeoutMilliseconds','MaximumLexicalJobs','EvidenceReview','SpellingLesson','ReadSpelling','AcquisitionPolicy','SurfaceRepairPolicy','Enabled','MinimumCharacters','MaximumCharacters','MaximumDistance','MaximumRatio','MaximumSurfaceSpan','MaximumScans','MaximumProposals','Penalty','SurfaceRepair','ContextRequirement','PreviousAllowsHint','LearnableType','MemoryObject','MemoryBinding','MemoryAttention','MemoryRetention','MemoryScore','FocusWindow','MaximumMemoryObjects','RecipeFact','Scope','IngredientSection','ProcedureSection','OptionalMarker','AnswerAssessment','AnswerRequirement','ReviewBelow','NoTeacherReview','LearningFallback','ModelLearningPolicy','ConstructionWeight','MaximumAttempts','AttributedMeaning','EvidenceReading','EvidenceObservation','MaximumPassages','RevisitBudget','MaximumSearchPages','MaximumRelatedProperties','RelationPath','RelationBinding','ContextualArgument','ArgumentHint','ContextFor','RejectedReply','MaximumMeasurements','ReadForm','ContextHint','Clarification','DecodedValue','Frame','ImplementationLesson','SenseIdentity','ValueMapping','MaximumPasses','MaximumJobs','MaximumDecodings','MaximumMilliseconds','MaximumTypeDepth','MaximumTypeNodes','TypeEvidence','Realization', 'Construction', 'Native', 'ValidatedProgram', 'ValidatedRealization', 'StarterProcedure', 'StarterLesson', 'Capability', 'Arity', 'Commutative', 'MinimumExamples', 'MaximumExpressions', 'MaximumReusableBlocks', 'MaximumProcedureInspections', 'Adapter', 'Endpoint', 'Revision', 'Priority', 'LearningRate', 'Margin', 'MaximumStates', 'MaximumCandidates', 'MaximumSpan', 'RequestTimeout', 'MaximumBytes', 'TickBudget','MaximumRequests','MaximumResearchMilliseconds','SearchLimit','CacheMilliseconds','EndTimeProperty','PointInTimeProperty','ResearchAnswer','KnowledgeFact']);
+    const forbidden = new Set(['PassageBoundary','MaximumReinterpretations','LearningAssertion','LexicalDefinition','FormLearning','DefineForm','DictionaryLearningPolicy','MaximumSenses','MaximumDefinitionCharacters','MaximumReferenceCharacters','MaximumReferenceWords','MaximumReferenceDepth','MaximumRoutes','MaximumRouteInspections','DocumentReader','MeaningSection','LanguageSection','DefinitionPrefix','TemplateMapping','UnresolvedSense','LexicalEquivalent','DefinitionParaphrase','DictionarySense','DictionaryExample','DictionaryObservation','TeacherTimeoutMilliseconds','MaximumLexicalJobs','EvidenceReview','SpellingLesson','ReadSpelling','AcquisitionPolicy','SurfaceRepairPolicy','Enabled','MinimumCharacters','MaximumCharacters','MaximumDistance','MaximumRatio','MaximumSurfaceSpan','MaximumScans','MaximumProposals','Penalty','SurfaceRepair','ContextRequirement','PreviousAllowsHint','LearnableType','MemoryObject','MemoryBinding','MemoryAttention','MemoryRetention','MemoryScore','FocusWindow','MaximumMemoryObjects','RecipeFact','Scope','IngredientSection','ProcedureSection','OptionalMarker','AnswerAssessment','AnswerRequirement','ReviewBelow','NoTeacherReview','LearningFallback','ModelLearningPolicy','ConstructionWeight','MaximumAttempts','AttributedMeaning','EvidenceReading','EvidenceObservation','MaximumPassages','RevisitBudget','MaximumSearchPages','MaximumRelatedProperties','RelationPath','RelationBinding','ContextualArgument','ArgumentHint','ContextFor','RejectedReply','MaximumMeasurements','ReadForm','ContextHint','Clarification','DecodedValue','Frame','ImplementationLesson','SenseIdentity','ValueMapping','MaximumPasses','MaximumJobs','MaximumDecodings','MaximumMilliseconds','MaximumTypeDepth','MaximumTypeNodes','TypeEvidence','Realization', 'Construction', 'Native', 'ValidatedProgram', 'ValidatedRealization', 'StarterProcedure', 'StarterLesson', 'Capability', 'Arity', 'Commutative', 'MinimumExamples', 'MaximumExpressions', 'MaximumReusableBlocks', 'MaximumProcedureInspections', 'Adapter', 'Endpoint', 'Revision', 'Priority', 'LearningRate', 'Margin', 'MaximumStates', 'MaximumCandidates', 'MaximumSpan', 'RequestTimeout', 'MaximumBytes', 'TickBudget','MaximumRequests','MaximumResearchMilliseconds','SearchLimit','CacheMilliseconds','EndTimeProperty','PointInTimeProperty','ResearchAnswer','KnowledgeFact']);
     const visit = expression => { if (!isTerm(expression)) return; if (forbidden.has(expression.head)) throw new Error('Evidence cannot install behavior or policy: ' + expression.head); for (const a of expression.args) visit(a.value); };
     for (const expression of expressions) visit(expression);
   }
@@ -239,7 +239,7 @@ export class ProjectCore {
     this.trace(run,episodeId,'review.completed',{changed:reviewed.changed,need:reviewed.need??null,error:reviewed.error??null,retry:retry?.readingId??null});
     return {...reviewed,retry};
   }
-  async turn(text, { learn = this.online, profile = this.profile, context = term('Context'), contextSupports=[], episode, assisted = true } = {}) {
+  async turn(text, { learn = this.online, profile = this.profile, context = term('Context'), contextSupports=[], episode, assisted = true, reinterpretations=0 } = {}) {
     await this.prepare();
     if(!episode){
       const previous=this.store.records('Episode').filter(r=>field(r.expression,'profile','')===profile).sort((a,b)=>field(b.expression,'sequence',0)-field(a.expression,'sequence',0))[0];
@@ -315,6 +315,7 @@ export class ProjectCore {
         retry=await this.resume(previous.id,{learn});
       }
     }
+    const languageBeforeResponse=this.learner.languageFingerprint();
     if (this.store.parts('Respond', 'Realization').length) {
       this.responseProfile=profile;this.responseEpisode=episodeId;this.responseReading=readingId;this.responseMeaning=status==='resolved'?format(best.meaning):null;
       this.responseEvidence=[];this.executionTrace=[];
@@ -326,6 +327,19 @@ export class ProjectCore {
         { source: 'derived:response', supports: [...new Set([readingId, ...executionSupports, ...this.responseEvidence, ...(field(reply,'evidence') ? [field(reply,'evidence')] : []), ...run.trace.flatMap(t => t.support ? [t.support] : t.supports ?? [])])] });
       this.responseEvidence=undefined;this.executionTrace=undefined;
       this.responseProfile=undefined;this.responseEpisode=undefined;this.responseReading=undefined;this.responseMeaning=undefined;
+    }
+    // Source acquisition can contribute language after initial interpretation.
+    // Retry only a pending reply when new evidence supports a different complete
+    // reading; ordinary actions and unchanged excerpt previews are not rerun.
+    if(!retry&&field(reply,'pending',false)&&reinterpretations<this.policy('RequestLearningPolicy','MaximumReinterpretations')&&languageBeforeResponse!==this.learner.languageFingerprint()){
+      const refined=await this.learner.request(input,{profile,context,contextSupports,acquire:learn,episode:episodeId,traceRun});
+      const winner=this.learner.best(refined.analysis,{allowFallback:false});
+      if(winner&&format(winner.meaning)!==format(best?.meaning)){
+        this.trace(traceRun,episodeId,'request.retry',{reason:'Source learning supports a new complete reading; retrying the original observation before optional teaching',previousReply:replyId,meaning:format(winner.meaning),reinterpretations:reinterpretations+1});
+        const improved=await this.turn(text,{learn,profile,context,contextSupports,episode:episodeId,assisted,reinterpretations:reinterpretations+1});
+        this.store.retract(replyId);
+        return {...improved,attempts:[...attempts,...refined.attempts,...improved.attempts]};
+      }
     }
     let assessment=await assessAnswer(this,{episode:episodeId,reading:readingId,reply,replyId,analysis,status});
     if(learn && assisted && this.modelLearner && !assistance && (field(reply,'pending',false)||assessment.review)) {

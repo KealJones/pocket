@@ -11,3 +11,9 @@ Concept(RespondTo(),
   Realization(RespondTo(Thanks()),body=Replied(text="You're welcome! What should we figure out next?")),
   Realization(RespondTo(Help()),body=Replied(text="I learn from worked examples and what you teach me, retain the procedures that fit the evidence, and investigate unfamiliar questions. Open the inspector to see how a reply was produced.")),
   Realization(RespondTo($meaning),body=Let($answer,Native("learned.answer",Quote($meaning)),If(Native("value.is-number",$answer),Native("reply.make",Native("number.text",$answer),$answer),If(Native("value.is-reply",$answer),$answer,If(Native("value.is-text",$answer),Native("reply.make",$answer,null),Native("reply.make",Native("text.concat","I understood: ",Native("term.format",Quote($meaning))),null)))))))
+
+// Negation scopes over a composed meaning. It cannot become the positive action
+// merely because a looser text slot could absorb its words into a name.
+Concept(NegationWord(),Surface("do not"),Surface("don't"),Surface("not"),Surface("never"),
+ Frame(pattern=List(Lexeme(NegationWord()),Slot($meaning,protected=true)),meaning=Negated($meaning),weight=16))
+Concept(Negated(),NoTeacherReview())

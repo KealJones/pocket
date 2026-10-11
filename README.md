@@ -7,8 +7,9 @@ notation. The original Napkin repository is unchanged.
 This is a runnable research foundation, with a deliberately small starting vocabulary.
 It preserves messy input, proposes competing readings, learns reusable constructions
 from examples, stores evidence, and revisits observations after learning. It does not
-yet understand arbitrary English prose or automatically turn dictionary definitions
-into executable knowledge.
+yet understand arbitrary English prose. Short reference definitions can now link
+new forms to retained meanings and checked realizations; arbitrary definitions
+do not automatically become executable knowledge.
 
 ## Run
 
@@ -354,3 +355,9 @@ You can now teach a personal word or phrase in conversation, for example
 sense-learning path, investigates an unfamiliar reference, and composes the new
 form with ordinary context later. Conflicting definitions remain alternatives;
 learning a definition does not execute it. Gemini is optional throughout.
+
+Pocket 0.13.2 also learns supported definitions from source prose through the
+same reader, including material unrelated to the immediate question. When a
+pending retrieval teaches enough language to understand the original request,
+it can retry and answer in that request. Source instructions are kept inert,
+competing claims remain separate, and uncertain work stays visible.

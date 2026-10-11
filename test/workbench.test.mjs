@@ -85,6 +85,10 @@ test('workbench controls teach real concepts and retain exact pieces, rewards, a
       assert.match([...$('history').querySelectorAll('.assistant-words')].at(-1).textContent,/^\d{2}:\d{2}$/);
       assert.equal([...$('history').querySelectorAll('.turn')].at(-1).querySelectorAll('.citation').length,0);
     }
+    $('message').value='army clock means military time';submit('talkForm');await settled();
+    assert.match([...$('history').querySelectorAll('.assistant-words')].at(-1).textContent,/retained your definition/);
+    $('message').value='in army clock';submit('talkForm');await settled();
+    assert.match([...$('history').querySelectorAll('.assistant-words')].at(-1).textContent,/^\d{2}:\d{2}$/);
     for(const prompt of ['my best friend Greg turned 30 yesterday!','who is my best friend','can you make me a shopping list with eggs, and chicken on it','oh and sugar']) { $('message').value=prompt;submit('talkForm');await settled(); }
     assert.equal([...$('history').querySelectorAll('.assistant-words')].at(-1).textContent,'- eggs\n- chicken\n- sugar');
     assert.match($('concepts').textContent,/ShoppingList\(\) · conversation memory/);

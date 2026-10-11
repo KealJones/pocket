@@ -4,6 +4,18 @@ import { learnRealization } from './code-learning.mjs';
 import {digest} from './digest.mjs';
 import {retainLexicalSense,lexicalRoutes} from './dictionary.mjs';
 
+// Source passage boundaries are configured marks and retained byte spans. They
+// do not require capitalization and do not cut numbers, quotations, code or URLs.
+function evidencePassages(text,language,marks){
+  const ends=new Set([text.length]),input=capture(text);
+  const protectedSpans=input.tokens.filter(t=>t.protected||t.kind==='number');
+  for(const part of new Intl.Segmenter(language,{granularity:'sentence'}).segment(text)){const end=part.index+part.segment.length;if(!protectedSpans.some(t=>end>t.start&&end<t.end))ends.add(end);}
+  for(const token of input.tokens)if(!token.protected&&marks.has(token.raw)&&(token.end===text.length||/\s/u.test(text[token.end]))){
+    let end=token.end;while(end<text.length&&/\s/u.test(text[end]))end++;ends.add(end);
+  }
+  const spans=[];let index=0;for(const end of [...ends].sort((a,b)=>a-b)){if(end>index)spans.push({segment:text.slice(index,end),index});index=end;}return spans;
+}
+
 // One request worklist: evidence acquisition, grounded frames, implementation
 // lessons, then reinterpretation. Domain meanings are authored/imported concepts.
 export class Learner {
@@ -27,6 +39,30 @@ export class Learner {
     p.responseEvidence?.push(observation,...routes.routes.flatMap(r=>r.supports));
     return call('FormLearning',[form,definition],{known:Boolean(routes.routes.length&&!routes.exhausted),withdrawn:false});
   }
+  retainAttributedLearning(attribution){
+    const store=this.store,p=this.project,claim=store.record(attribution);
+    if(!claim?.active||claim.expression.head!=='AttributedMeaning')return [];
+    const document=store.record(field(claim.expression,'document'));
+    if(!document?.active||!['SourceExcerpt','SourceDocument'].includes(document.expression.head))return [];
+    const meaning=values(claim.expression)[0];if(!isTerm(meaning))return [];
+    const proof=store.typeProof(meaning.head,'Assertion');if(!proof)return [];
+    const contracts=store.parts(meaning.head,'LearningAssertion'),created=[];
+    for(const contract of contracts){
+      if(values(contract.expression)[0]!=='lexical-reference')continue;
+      const [form,definition]=values(meaning),profile=field(claim.expression,'profile','');
+      if(![form,definition].every(text=>typeof text==='string'&&text.trim()&&text.length<=p.policy('DictionaryLearningPolicy','MaximumReferenceCharacters')))continue;
+      const source='source:definition:'+attribution,prior=store.db.prepare('SELECT id,active FROM records WHERE head=? AND source=?').all('LexicalDefinition',source);
+      // A retained or withdrawn assertion is not silently reinstalled on review.
+      if(prior.length)continue;
+      const observation=store.put(call('LexicalDefinition',[form,definition],{profile,attribution,document:document.id,sequence:p.sequence()}),{source,supports:[attribution,contract.support,...proof,...store.parts('DictionaryLearningPolicy').map(p=>p.support)]});
+      const identity=term('C_'+digest(source+'|'+form+'|'+definition));
+      created.push(retainLexicalSense(store,{identity,observation,surface:form,gloss:definition,paraphrase:definition,profile,source:'derived:source-defined-sense',label:form+' · attributed definition'}));
+      const route=lexicalRoutes(store,identity.head,profile,p.lexicalOptions());
+      if(route.needs.length)store.put(call('Need',route.needs.map(text=>term('LearnSense',text)),{phase:'assertion',definition:observation,profile,document:document.id}),{source:'derived:definition-need',supports:[observation]});
+      for(const reference of route.needs)store.enqueue(reference,'lexical');
+    }
+    return created;
+  }
   languageFingerprint(){return digest(this.store.records('Concept').map(r=>r.id).sort().join('\n'));}
   // Sources and users share capture, lexical proposals, frames and selection.
   // Reading evidence never runs its meaning or treats it as a user command.
@@ -41,14 +77,15 @@ export class Learner {
     const maximum=this.project.policy('EvidenceReadingPolicy','MaximumPassages'),results=[],selected=[];
     let lexicalJobs=0;const queued=new Set(this.store.agenda().filter(j=>j.kind==='lexical').map(j=>j.query.normalize('NFC').toLowerCase()));
     const prior=this.store.records('EvidenceObservation').filter(r=>field(r.expression,'document')===recordId&&field(r.expression,'profile','')===profile&&format(field(r.expression,'context'))===format(context));
-    const seen=new Set(prior.map(r=>field(r.expression,'start')));
+    const seen=new Set(prior.map(r=>field(r.expression,'start')+':'+field(r.expression,'end')));
     const resolved=new Set(this.store.records('EvidenceReading').filter(r=>values(r.expression)[0]?.head==='Resolved').map(r=>field(r.expression,'observation'))),language=this.languageFingerprint(),reviews=new Map();
     for(const review of this.store.records('EvidenceReview')){const observation=field(review.expression,'observation'),held=reviews.get(observation);if(!held||field(review.expression,'sequence',0)>field(held.expression,'sequence',0))reviews.set(observation,review);}
     let unfinished=false;
     // Advance through unread passages first. A difficult first sentence cannot
     // monopolize every bounded revisit and hide the rest of a retained document.
-    for(const {segment,index}of new Intl.Segmenter(field(record.expression,'language','en'),{granularity:'sentence'}).segment(text)){
-      if(!segment.trim()||seen.has(index))continue;
+    const boundaries=new Set(this.store.parts('EvidenceReadingPolicy','PassageBoundary').map(p=>values(p.expression)[0]));
+    for(const {segment,index}of evidencePassages(text,field(record.expression,'language','en'),boundaries)){
+      if(!segment.trim()||seen.has(index+':'+(index+segment.length)))continue;
       if(selected.length>=maximum){unfinished=true;break;}
       selected.push({segment,index});
     }
@@ -63,12 +100,12 @@ export class Learner {
       const input=capture(segment),observation=this.store.put(call('EvidenceObservation',[input.expression],{document:recordId,start:index,end:index+segment.length,profile,context}),{source:'derived:evidence-observation',supports:[recordId,...this.store.parts('EvidenceReadingPolicy').map(p=>p.support)]});
       let analysis=await this.project.analyze(input,{profile,context});
       this.activateFrames(analysis);analysis=await this.project.analyze(input,{profile,context});
-      const selected=this.best(analysis),best=selected&&!this.store.isA(selected.meaning?.head,'Request')?selected:null,result=best?term('Resolved',best.meaning):term(analysis.candidates.length?'Ambiguous':'Learning',term('List',...analysis.candidates.map(c=>this.project.candidateExpression(c))));
-      const supports=[observation,...this.store.parts('InterpretationPolicy').map(p=>p.support),...analysis.candidates.flatMap(c=>c.supports)];
+      const selected=this.best(analysis),assertionProof=selected&&this.store.typeProof(selected.meaning?.head,'Assertion'),best=selected&&assertionProof!==null&&assertionProof!==undefined?selected:null,result=best?term('Resolved',best.meaning):term(analysis.candidates.length?'Ambiguous':'Learning',term('List',...analysis.candidates.map(c=>this.project.candidateExpression(c))));
+      const supports=[observation,...(assertionProof??[]),...this.store.parts('InterpretationPolicy').map(p=>p.support),...analysis.candidates.flatMap(c=>c.supports)];
       const reading=this.store.put(call('EvidenceReading',[result],{observation,document:recordId,profile,readings:term('List',...analysis.candidates.map(c=>this.project.candidateExpression(c)))}),{source:'derived:evidence-reading',supports:[...new Set(supports)]});
       // Changed language evidence replaces the previous reading of this passage.
       for(const old of this.store.records('EvidenceReading').filter(r=>r.id!==reading&&field(r.expression,'observation')===observation))this.store.retract(old.id);
-      if(best)this.store.put(call('AttributedMeaning',[best.meaning],{observation,document:recordId,profile,text:segment,url:field(record.expression,'url',null),license:field(record.expression,'license','unspecified')}),{source:'derived:attributed-meaning',supports:[reading]});
+      if(best){const attribution=this.store.put(call('AttributedMeaning',[best.meaning],{observation,document:recordId,profile,text:segment,url:field(record.expression,'url',null),license:field(record.expression,'license','unspecified')}),{source:'derived:attributed-meaning',supports:[reading]});this.retainAttributedLearning(attribution);}
       this.store.put(call('EvidenceReview',[],{observation,reading,language,sequence:this.project.sequence()}),{source:'derived:evidence-review',supports:[reading]});
       if(!best){const words=[...new Set(this.unknowns(input,analysis))];
         if(words.length)this.store.put(call('Need',words.map(word=>term('LearnSense',word)),{phase:'evidence',profile,observation,document:recordId}),{source:'derived:evidence-need',supports:[observation]});

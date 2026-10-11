@@ -1,12 +1,14 @@
-# Pocket verification — 0.12.2
+# Pocket verification — 0.13.2
 
-This checkpoint is a research runtime, not a claim of general English or
-LLM-equivalent comprehension. No new question-to-answer table was added.
+This checkpoint strengthens independent on-the-job learning from a small bootstrap.
+It does not require broad knowledge at startup or claim universal comprehension.
+No question-to-answer table was added.
 
 ## Automated evidence
 
-195 tests passed; the concept/boot check validated 197 declarations. The demo
-and production build also completed successfully.
+All 212 tests pass. Concept checks validate 208 declarations, and the demo
+completes successfully. Production packaging runs the build for this exact
+checkpoint before publication.
 
 The full suite covers the Node runtime, the actual SQLite WASM browser engine,
 notebook reopen, and the DOM workbench. Independent tests disable both Gemini and
@@ -104,3 +106,24 @@ military time`, verifies teaching did not change the clock, uses `in army clock`
 and reopens the notebook to reuse the phrase without network or Gemini. Tests
 also retain conflicting definitions and keep protected code inert. A direct
 runtime probe produced `04:39 PM` then `16:39` through that sequence.
+
+## 0.13.2 source-to-answer experiment
+
+A controlled encyclopedia source returns a new definition during retrieval for
+an initially unfamiliar request. Pocket uses the ordinary source reader,
+retains an attributed lexical claim, re-enters independent learning, installs a
+checked realization, and directly answers the original request. Only one user
+observation is created. A different argument then transfers offline. This test
+uses controlled source data, not a live Wikipedia claim. The authored retry
+limit is verified, including zero automatic retries while preserving learning.
+
+Source prose tests retain multiple unrelated definitions, preserve raw spans,
+queue missing references, respect withdrawal, and keep source actions inert.
+Lowercase passage boundaries are covered alongside protected quotations, fenced
+code and decimal tokens. Attribution now requires an Assertion type proof.
+An authored negation frame keeps `do not`, `don't`, `not`, and `never` scoped
+over their meanings. Tests verify negated source definitions teach no positive
+alias, and a negated fetch does not make a network request.
+The DOM workbench test also sends a conversational definition through the actual
+chat form, uses the new phrase in a time-format follow-up, and persists the
+notebook. Screenshot-based iOS verification remains unavailable.

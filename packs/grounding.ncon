@@ -31,3 +31,6 @@ Concept(ScalarQuotient(),IsA(ComputableExpression()),Surface("/"),
 // Interpretation and execution remain distinct. Only the chosen meaning is used.
 Concept(RespondTo(),Realization(RespondTo(RequestValue($expression)),
   body=Let($answer,Native("expression.evaluate",Quote($expression)),RespondTo($answer))))
+
+// Re-enter the shared learner when retrieval changes the language evidence.
+Concept(RequestLearningPolicy(),MaximumReinterpretations(2))
