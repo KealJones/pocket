@@ -4,4 +4,4 @@ Concept(AddCapability(),IsA(InductionPrimitive()),Capability("number.add"),Arity
 Concept(SubtractCapability(),IsA(InductionPrimitive()),Capability("number.subtract"),Arity(2))
 Concept(MultiplyCapability(),IsA(InductionPrimitive()),Capability("number.multiply"),Arity(2),Commutative(true))
 Concept(DivideCapability(),IsA(InductionPrimitive()),Capability("number.divide"),Arity(2))
-Concept(InductionPolicy(),MinimumExamples(2),MaximumExpressions(256))
+Concept(InductionPolicy(),MinimumExamples(2),MaximumExpressions(1024),MaximumReusableBlocks(16),MaximumProcedureInspections(128))

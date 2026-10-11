@@ -45,6 +45,21 @@ Open a reply's inspector to see its interpretation and evidence. **Teach** accep
 observed outcomes, labelled meanings, and code implementations. **Knowledge** lets
 you withdraw assertions. **Learning** investigates and revisits unresolved work.
 
+Conversation follow-ups use shared episodic memory and attention. Try
+`get me the time` → `in military time`, or
+`my best friend Greg turned 30 yesterday!` → `who is my best friend` →
+`when is his birthday?`. Being 30 yesterday alone doesn't establish a birthday.
+`lunch is at 12:30` can fill a later `what time is lunch at?` request.
+
+Create `can you make me a shopping list with eggs, and chicken on it`, then ask
+`how do you make whipped cream?`, `oh no like one without vanilla`, and
+`oh and sugar`. Recipes retain source ingredients and steps; unsupported
+substitutions remain unresolved. Lists are dated conversation objects, not
+permanent knowledge. `what about that shopping list from yesterday?` retrieves
+history; `remember this list` explicitly marks stronger retention. New lists
+remain separate, and ambiguous dated references ask for clarification. Knowledge
+shows episode memories and explicit retention alongside learned source material.
+
 Research is a reusable learned procedure, not a capital-question answer table.
 Starter lessons teach relationship and topic question forms through the normal
 example learner. Text arguments preserve unknown names instead of prematurely
@@ -200,12 +215,18 @@ try {
 } finally { p.close(); }
 ```
 
-`teachOutcomes([{input,output}])` induces procedures from observations.
+`teachOutcomes([{input,output}])` induces procedures from observations. It can
+compose previously checked numeric implementations into new procedures, including
+implementations acquired from Gemini, without asking Gemini again. It retains
+helper dependencies so revisions invalidate the affected answers. Independent
+search remains bounded; it does not synthesize arbitrary programs.
 `teachCode({input,meaning,pattern,language:'javascript',code,checks})` compiles and
 stores a supplied implementation and learns its phrase. This requires a labelled
 meaning and registered capability semantics; it does not infer arbitrary English
 intent from a pasted source file. JavaScript is parsed and lowered, never passed to
-`eval` or `Function`. Numeric `+` in this subset uses finite-number arithmetic.
+`eval` or `Function`. Numeric `+` in this subset uses finite-number arithmetic. The web code form accepts
+optional `List(Check(input, output), ...)` checks. Two distinct numeric checks make
+an eligible pure two-argument realization available for future independent learning.
 
 `load` and `importRecords` are authoring interfaces for trusted local material.
 Fetched source text stays inert: interpreting a source sentence never executes it. Online responses have request timeouts and byte

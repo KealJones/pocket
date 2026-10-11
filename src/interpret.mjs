@@ -82,12 +82,12 @@ export async function propose(store, input, { profile = '', context = term('Cont
         const name = values(p)[0].variable, kind = field(p, 'kind'), primitive = field(p, 'primitive');
         // Capture a bounded, lossless text argument without guessing its meaning.
         // Only an explicitly taught construction can request this kind of slot.
-        if (field(p, 'capture') === 'text') {
+        if (['text','segment'].includes(field(p, 'capture')))  {
           const span=field(p,'maximumSpan',maximumSpan);
           if(!Number.isInteger(span)||span<1)return;
           for (let end = at + 1; end <= Math.min(lex.units.length, at + maximumSpan,at+span); end++) {
             const units = lex.units.slice(at, end);
-            if (units.some(u => u.protected || !['word'].includes(u.kind))) break;
+            if (units.some(u => u.protected || !(field(p,'capture')==='segment'?['word','number','punctuation']:['word']).includes(u.kind))) break;
             const raw = input.source.slice(units[0].start, units.at(-1).end);
             if (bindings.has(name) && format(bindings.get(name)) !== format(raw)) continue;
             const bound = new Map(bindings); bound.set(name, raw);

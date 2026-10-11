@@ -1,6 +1,6 @@
 import { ProjectCore } from '../src/project-core.mjs';
 import { BrowserStore, openVault } from './store.mjs';
-import { parse, format, values, field } from '../src/ncon.mjs';
+import { parse, format, values, field, term } from '../src/ncon.mjs';
 import { researchFetch } from './network.mjs';
 
 const $ = id => document.getElementById(id);
@@ -155,6 +155,21 @@ function history() {
 function concepts() {
   const search = $('search').value.toLowerCase(); $('concepts').replaceChildren();
   const label=identity=>values(project.store.parts(identity?.head,'Label')[0]?.expression)[0]??format(identity);
+  for(const object of project.store.records('MemoryObject').filter(r=>field(r.expression,'profile','')===project.profile)){
+    const reference=term('MemoryRef',object.id),kind=values(object.expression)[0];
+    const bindings=project.store.records('MemoryBinding').filter(r=>field(r.expression,'profile','')===project.profile&&format(values(r.expression)[0])===format(reference)).sort((a,b)=>field(b.expression,'sequence',0)-field(a.expression,'sequence',0));
+    const latest=new Map();for(const binding of bindings){const relation=format(values(binding.expression)[1]);if(!latest.has(relation))latest.set(relation,binding);}
+    const retained=project.store.records('MemoryRetention').some(r=>field(r.expression,'profile','')===project.profile&&format(values(r.expression)[0])===format(reference));
+    const title=label(kind)+' · '+(retained?'explicitly remembered':'conversation memory'),content=[...latest.values()].map(r=>format(r.expression)).join('\n');
+    if(!(title+content).toLowerCase().includes(search))continue;
+    const details=node('details',undefined,'record');details.append(node('summary',title),node('small',field(object.expression,'receivedAt','')+' · '+field(object.expression,'timeZone','')),node('p',retained?'You requested stronger retention.':'Retained as a dated part of this conversation. It can leave focus without becoming general knowledge.'),node('pre',content));
+    const button=node('button','Withdraw this memory');button.addEventListener('click',()=>act(()=>{const removed=project.store.retract(object.id);notice('Withdrew the memory and '+(removed.length-1)+' dependent record(s). Original words remain in history.');}));details.append(button);$('concepts').append(details);
+  }
+  for(const recipe of project.store.records('RecipeFact').filter(r=>field(r.expression,'profile','')===project.profile)){
+    const title=values(recipe.expression)[1];if(!(title+format(recipe.expression)).toLowerCase().includes(search))continue;
+    const details=node('details',undefined,'record');details.append(node('summary',title+' · source recipe'),node('pre',format(recipe.expression)));
+    const link=node('a','Recipe source','citation');link.href=field(recipe.expression,'url');link.target='_blank';link.rel='noopener noreferrer';details.append(link);$('concepts').append(details);
+  }
   for(const fact of project.store.records('KnowledgeFact')){
     const heading=label(field(fact.expression,'subject'))+' · '+label(field(fact.expression,'relation'))+': '+field(fact.expression,'display');
     if(!heading.toLowerCase().includes(search))continue;
@@ -233,7 +248,10 @@ $('pageForm').addEventListener('submit',event=>{
 $('codeForm').addEventListener('submit',event=>{
   event.preventDefault(); act(async()=>{
     const language=$('codeLanguage').value;
-    const result=await project.teachCode({input:$('codeInput').value,meaning:parse($('codeMeaning').value),pattern:parse($('codePattern').value),language,...(language==='javascript'?{code:$('codeBody').value}:{body:parse($('codeBody').value)})});
+    const checkList=$('codeChecks').value.trim()?parse($('codeChecks').value):parse('List()');
+    if(checkList.head!=='List'||values(checkList).some(c=>c?.head!=='Check'||values(c).length!==2)) throw new Error('Use List(Check(input, output), ...) for execution checks.');
+    const checks=values(checkList).map(c=>({input:values(c)[0],output:values(c)[1]}));
+    const result=await project.teachCode({input:$('codeInput').value,meaning:parse($('codeMeaning').value),pattern:parse($('codePattern').value),language,checks,...(language==='javascript'?{code:$('codeBody').value}:{body:parse($('codeBody').value)})});
     $('lessonResult').hidden=false; $('lessonResult').replaceChildren(node('p','Learned language and an executable realization from the supplied code example.'),node('pre',format(result.declaration)));
     notice('Realization retained with its code example and lesson as evidence.');
   },{message:'Validating code and learning the phrase’s parameter slots…'});

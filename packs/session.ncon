@@ -1,0 +1,74 @@
+// Conversation workflows use ordinary concepts; native code supplies versioned
+// values, collections and a timezone-aware clock. Frames remain editable lessons.
+Concept(TimeWord(),Surface("time"),
+ Frame(pattern=List(Choice(Literal("what time is it"),Literal("get me the time")),Optional(Literal("?"))),meaning=SessionRequest(ReadClock()),weight=12),
+ Frame(pattern=List(Literal("what time is"),Slot($event,capture="text"),Literal("at"),Optional(Literal("?"))),meaning=SessionRequest(ReadSchedule($event)),weight=12),
+ Frame(pattern=List(Literal("in military time"),Optional(Literal("!"))),meaning=SessionRequest(ChangeClockFormat("24")),weight=12))
+Concept(FriendWord(),Surface("friend"),
+ Frame(pattern=List(Literal("my best friend"),Slot($name,capture="text",maximumSpan=3),Literal("is"),Slot($age,primitive="number"),Literal("years old yesterday"),Optional(Literal("!"))),meaning=SessionRequest(RememberFriendAge($name,$age)),weight=12),
+ Frame(pattern=List(Literal("my best friend"),Slot($name,capture="text",maximumSpan=3),Literal("turned"),Slot($age,primitive="number"),Choice(Literal("yesterday"),Literal("years old yesterday")),Optional(Literal("!"))),meaning=SessionRequest(RememberFriendBirthday($name,$age)),weight=12),
+ Frame(pattern=List(Literal("who is my best friend"),Optional(Literal("?"))),meaning=SessionRequest(RecallFriend()),weight=12))
+Concept(BirthdayWord(),Surface("birthday"),
+ Frame(pattern=List(Literal("when is his birthday"),Optional(Literal("?"))),meaning=SessionRequest(RecallFocusedBirthday()),weight=12))
+Concept(ListWord(),Surface("list"),
+ Frame(pattern=List(Choice(Literal("can you make me a shopping list with"),Literal("make me a shopping list with")),Slot($items,capture="segment"),Literal("on it"),Optional(Literal("?"))),meaning=SessionRequest(CreateCollection(ShoppingList(),$items)),weight=12),
+ Frame(pattern=List(Literal("show my shopping list"),Optional(Literal("?"))),meaning=SessionRequest(ShowCollection(TaskList())),weight=12))
+Concept(AndWord(),Surface("and"),
+ Frame(pattern=List(Literal("oh and"),Slot($items,capture="segment")),meaning=SessionRequest(AddCollectionItems(TaskList(),$items)),weight=12))
+Concept(MakeWord(),Surface("make"),
+ Frame(pattern=List(Literal("how do you make"),Slot($dish,capture="text"),Optional(Literal("?"))),meaning=SessionRequest(FindRecipe($dish)),weight=12))
+Concept(WithoutWord(),Surface("without"),
+ Frame(pattern=List(Choice(Literal("oh no like one without"),Literal("one without")),Slot($items,capture="segment")),meaning=SessionRequest(ChangeRecipeExclusions($items)),weight=12))
+
+// Attention is a bounded working set. Objects remain dated episodic records;
+// only an explicit Remember request adds a stronger retention marker.
+Concept(MemoryPolicy(),FocusWindow(12),MaximumMemoryObjects(256),Margin(0.5))
+Concept(MemoryScore(),Realization(MemoryScore($age),body=Native("number.subtract",0,$age)))
+Concept(TaskList(),LearnableType())
+Concept(CollectionKind(),LearnableType())
+Concept(ShoppingList(),IsA(TaskList()),IsA(CollectionKind()),Surface("shopping list"))
+Concept(CollectionWord(),Surface("list"),
+ Frame(pattern=List(Literal("make"),Slot($kind,kind=CollectionKind()),Literal("with"),Slot($items,capture="segment")),meaning=SessionRequest(CreateCollection($kind,$items)),weight=12),
+ Frame(pattern=List(Literal("show"),Slot($kind,kind=CollectionKind()),Literal("from yesterday"),Optional(Literal("?"))),meaning=SessionRequest(RecallCollectionDate($kind,Native("calendar.shift-days",Native("calendar.reference-date"),-1))),weight=12))
+Concept(PersonMemory())
+Concept(ClockReading())
+Concept(RecipeMemory())
+Concept(RespondTo(),Realization(RespondTo(SessionRequest($operation)),body=SessionApply($operation)))
+Concept(ItemList(),Realization(ItemList($raw),body=Native("text.items",Native("text.trim-marks",$raw,".!?"),",|\\band\\b")))
+Concept(SessionReply(),
+ Realization(SessionReply(text=$text,answer=$answer),body=Native("reply.make",Native("ncon.evaluate",Quote($text)),Native("ncon.evaluate",Quote($answer)))),
+ Realization(SessionReply(text=$text,pending=true),body=Native("reply.pending",Native("ncon.evaluate",Quote($text)))),
+ Realization(SessionReply(text=$text),body=Native("reply.make",Native("ncon.evaluate",Quote($text)),null)))
+Concept(AgeAsOf(),Realization(AgeAsOf($age,$date),body=Native("data.term","AgeAsOf",$age,Native("ncon.evaluate",Quote($date)))))
+Concept(CollectionReply(),Realization(CollectionReply($ref),body=Let($items,Native("memory.recall",$ref,Items(),List()),SessionReply(text=Native("collection.text",$items),answer=$items))))
+Concept(ClockReply(),Realization(ClockReply($ref),body=Let($formatted,Native("clock.format",Native("memory.recall",$ref,Instant()),Native("memory.read","clock.format","12")),SessionReply(text=$formatted,answer=$formatted))))
+Concept(PersonNamed(),Realization(PersonNamed($name),body=Let($found,Native("memory.find-field",PersonMemory(),Name(),$name),If(Native("memory.is-reference",$found),$found,Let($ref,Native("memory.create",PersonMemory()),Sequence(Native("memory.bind",$ref,Name(),$name),$ref))))))
+Concept(RememberAge(),Realization(RememberAge($ref,$age),body=Sequence(Native("memory.bind",$ref,Age(),AgeAsOf($age,Native("calendar.shift-days",Native("calendar.reference-date"),-1))),SessionReply(text="I retained the age as of yesterday in this conversation. That alone doesn't establish a birthday."))))
+Concept(RememberBirthday(),Realization(RememberBirthday($ref,$age),body=Sequence(Native("memory.bind",$ref,BirthDate(),Native("calendar.shift-years",Native("calendar.shift-days",Native("calendar.reference-date"),-1),Native("number.subtract",0,$age))),SessionReply(text="I retained the birthday from turning that age yesterday."))))
+Concept(SessionApply(),
+ Realization(SessionApply(ReadClock()),body=Let($ref,Native("memory.create",ClockReading()),Sequence(Native("memory.bind",$ref,Instant(),Native("clock.now")),Native("memory.attend",$ref),ClockReply($ref)))),
+ Realization(SessionApply(ChangeClockFormat($format)),body=Let($ref,Native("memory.focus",ClockReading()),If(Native("memory.is-reference",$ref),Sequence(Native("memory.write","clock.format",$format),ClockReply($ref)),SessionReply(text="Which time would you like in that format?",pending=true)))),
+ Realization(SessionApply(ReadSchedule($event)),body=Let($time,Native("memory.read",Native("text.concat","schedule.",Native("text.fold",$event))),If(Native("value.is-text",$time),SessionReply(text=$time,answer=$time),SessionReply(text=Native("text.concat","Which ",$event," do you mean? I don't have a time for it in memory."),pending=true)))),
+ Realization(SessionApply(RememberSchedule($event,$time)),body=Sequence(Native("memory.write",Native("text.concat","schedule.",Native("text.fold",$event)),$time),SessionReply(text="I retained that event time in this conversation."))),
+ Realization(SessionApply(RememberFriendAge($name,$age)),body=Let($ref,PersonNamed($name),Sequence(Native("memory.write","person.best-friend",$ref),Native("memory.attend",$ref),RememberAge($ref,$age)))),
+ Realization(SessionApply(RememberFriendBirthday($name,$age)),body=Let($ref,PersonNamed($name),Sequence(Native("memory.write","person.best-friend",$ref),Native("memory.attend",$ref),RememberBirthday($ref,$age)))),
+ Realization(SessionApply(RememberFocusedBirthday($age)),body=Let($ref,Native("memory.focus",PersonMemory()),If(Native("memory.is-reference",$ref),RememberBirthday($ref,$age),SessionReply(text="Whose birthday do you mean?",pending=true)))),
+ Realization(SessionApply(RecallFriend()),body=Let($ref,Native("memory.read","person.best-friend"),If(Native("memory.is-reference",$ref),Sequence(Native("memory.attend",$ref),SessionReply(text=Native("memory.recall",$ref,Name()),answer=Native("memory.recall",$ref,Name()))),SessionReply(text="Who is your best friend?",pending=true)))),
+ Realization(SessionApply(RecallFocusedBirthday()),body=Let($ref,Native("memory.focus",PersonMemory()),If(Native("memory.is-reference",$ref),Let($date,Native("memory.recall",$ref,BirthDate()),If(Native("value.is-text",$date),SessionReply(text=$date,answer=$date),SessionReply(text="Did they turn that age yesterday, or were they already that age? I haven't established their birthday.",pending=true))),SessionReply(text="Whose birthday do you mean?",pending=true)))),
+ // The same collection operations work for shopping, packing or another learned kind.
+ Realization(SessionApply(CreateCollection($kind,$raw)),body=Let($ref,Native("memory.create",$kind),Sequence(Native("memory.bind",$ref,Items(),ItemList($raw)),Native("memory.attend",$ref),CollectionReply($ref)))),
+ Realization(SessionApply(ShowCollection($kind)),body=Let($ref,Native("memory.focus",$kind),If(Native("memory.is-reference",$ref),Sequence(Native("memory.attend",$ref),CollectionReply($ref)),SessionReply(text="Which list do you mean?",pending=true)))),
+ Realization(SessionApply(AddCollectionItems($kind,$raw)),body=Let($ref,Native("memory.focus",$kind),If(Native("memory.is-reference",$ref),Sequence(Native("memory.bind",$ref,Items(),Native("collection.merge",Native("memory.recall",$ref,Items(),List()),ItemList($raw))),Native("memory.attend",$ref),CollectionReply($ref)),SessionReply(text="Which list should those items go on?",pending=true)))),
+ Realization(SessionApply(RecallCollectionDate($kind,$date)),body=Let($ref,Native("memory.find",$kind,Native("ncon.evaluate",Quote($date))),If(Native("memory.is-reference",$ref),Sequence(Native("memory.attend",$ref),CollectionReply($ref)),SessionReply(text="I couldn't identify one list from that date. Which one do you mean?",pending=true)))),
+ Realization(SessionApply(PinFocused($kind)),body=Let($ref,Native("memory.focus",$kind),If(Native("memory.is-reference",$ref),Sequence(Native("memory.pin",$ref),SessionReply(text="Marked this object for explicit retention.")),SessionReply(text="Which object should I remember?",pending=true)))),
+ Realization(SessionApply(FindRecipe($dish)),body=Let($ref,Native("memory.create",RecipeMemory()),Sequence(Native("memory.bind",$ref,Topic(),$dish),Native("memory.bind",$ref,Exclusions(),List()),Native("memory.attend",$ref),Native("session.recipe",$ref,$dish,List())))),
+ Realization(SessionApply(ChangeRecipeExclusions($raw)),body=Let($ref,Native("memory.focus",RecipeMemory()),If(Native("memory.is-reference",$ref),Let($excluded,Native("memory.bind",$ref,Exclusions(),Native("collection.merge",Native("memory.recall",$ref,Exclusions(),List()),ItemList($raw))),Native("session.recipe",$ref,Native("memory.recall",$ref,Topic()),$excluded)),SessionReply(text="Which recipe should leave those ingredients out?",pending=true))))
+)
+Concept(CookbookSource(),IsA(LearningSource()),Adapter("mediawiki-sections"),Endpoint("https://en.wikibooks.org/w/api.php"),License("CC-BY-SA"),Scope("Cookbook:"),IngredientSection("Ingredients"),ProcedureSection("Procedure"),OptionalMarker("optional"),MaximumCandidates(6))
+Concept(ScheduleWord(),Surface("at"),
+ Frame(pattern=List(Slot($event,capture="text",maximumSpan=3),Literal("is at"),Slot($time,capture="segment",maximumSpan=4)),meaning=SessionRequest(RememberSchedule($event,$time)),weight=12))
+Concept(YesterdayWord(),Surface("yesterday"),
+ Frame(pattern=List(Choice(Literal("yes he turned"),Literal("he turned")),Slot($age,primitive="number"),Literal("yesterday"),Optional(Literal("!"))),meaning=SessionRequest(RememberFocusedBirthday($age)),weight=12),
+ Frame(pattern=List(Choice(Literal("what about that shopping list from yesterday"),Literal("show the shopping list from yesterday")),Optional(Literal("?"))),meaning=SessionRequest(RecallCollectionDate(ShoppingList(),Native("calendar.shift-days",Native("calendar.reference-date"),-1))),weight=12))
+Concept(RememberWord(),Surface("remember"),
+ Frame(pattern=List(Literal("remember this list"),Optional(Literal("!"))),meaning=SessionRequest(PinFocused(TaskList())),weight=12))

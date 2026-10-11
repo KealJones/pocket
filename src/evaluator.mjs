@@ -3,8 +3,8 @@ import { call, term, isTerm, isVariable, values, field, format, match, specifici
 /** Auditable structural operations. No English words, senses, or tool-routing rules. */
 export const STRUCTURAL = Object.freeze(['Quote', 'Native', 'Let', 'If', 'Sequence', 'Each']);
 export class Evaluator {
-  constructor(store, capabilities = {}, { maximumSteps = 4096, maximumDepth = 128 } = {}) {
-    this.store = store; this.capabilities = capabilities; this.maximumSteps = maximumSteps; this.maximumDepth = maximumDepth;
+  constructor(store, capabilities = {}, { maximumSteps = 4096, maximumDepth = 128, onRealization } = {}) {
+    this.store = store; this.capabilities = capabilities; this.maximumSteps = maximumSteps; this.maximumDepth = maximumDepth; this.onRealization=onRealization;
   }
   async evaluate(expression, { context = term('Context'), bindings = new Map() } = {}) {
     const state = { steps: 0, trace: [], stack: new Set() };
@@ -61,6 +61,7 @@ export class Evaluator {
       return call('Alternatives', [expression, term('List', ...top.map(c => call('Alternative', [c.body], { support: c.support })))]);
     }
     const chosen = top[0]; if (chosen.body === undefined) throw new Error('Realization has no body');
+    this.onRealization?.(chosen.support);
     state.stack.add(key);
     try { const value = await recur(chosen.body, chosen.bindings); state.trace.push({ expression, outcome: equal(expression, value) ? 'residual' : 'realized', support: chosen.support }); return value; }
     finally { state.stack.delete(key); }

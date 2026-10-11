@@ -1,3 +1,6 @@
+import {Memory} from './memory.mjs';
+import {sessionCapabilities} from './session.mjs';
+import {Recipes} from './recipes.mjs';
 import { digest } from './digest.mjs';
 import { Evaluator } from './evaluator.mjs';
 import { capture } from './ears.mjs';
@@ -13,14 +16,19 @@ import { term, call, values, field, isTerm, format, parse, parseMany, match } fr
 
 const assertNumber = n => { if (typeof n !== 'number' || !Number.isFinite(n)) throw new TypeError('Expected finite number'); return n; };
 export class ProjectCore {
-  constructor({ store, bundle, online = true, fetcher, profile = '', sourceBaseUrl, sourceURLHeader = false, onProgress, teacher = null }) {
+  constructor({ store, bundle, online = true, fetcher, profile = '', sourceBaseUrl, sourceURLHeader = false, onProgress, teacher = null, clock, timeZone }) {
+    this.clock=clock??(()=>new Date());this.timeZone=timeZone??Intl.DateTimeFormat().resolvedOptions().timeZone;
     this.store = store; this.online = online; this.profile = profile; this.bundle = bundle; this.onProgress=onProgress;
     try { this.boot(); } catch (error) { this.store.close(); throw error; }
     this.sources = new Sources(this.store, { fetcher, baseURL: sourceBaseUrl, sourceURLHeader, timeout: this.policy('LearningPolicy', 'RequestTimeout'), maximumBytes: this.policy('LearningPolicy', 'MaximumBytes') });
     this.research = new Research(this);
+    this.recipes = new Recipes(this);
+    this.memory = new Memory(this);
     this.learner = new Learner(this);
     this.modelLearner = teacher ? new ModelLearner(this, teacher) : null;
     const capabilities = {
+      ...sessionCapabilities(this,{clock:this.clock,timeZone:this.timeZone}),
+      ...this.memory.capabilities(),
       'learning.propose': need => this.modelLearner.propose(need),
       'learning.validate-and-retain': (need, proposal) => this.modelLearner.validateAndRetain(need, proposal),
       'number.add': (a, b) => assertNumber(assertNumber(a) + assertNumber(b)),
@@ -47,7 +55,7 @@ export class ProjectCore {
         if(!isTerm(response)||response.head!=='Fetched') throw new Error('text() requires a successful fetched response');
         return field(response,'text');
       },
-      'learned.answer': expression => answerLearned(this.store, this.evaluator, expression),
+      'learned.answer': expression => answerLearned(this.store, this.evaluator, expression, { profile: this.responseProfile ?? this.profile }),
       'expression.evaluate': async expression => {
         if(isTerm(expression))this.responseEvidence?.push(...[...this.store.parts(expression.head,'ValidatedProgram'),...this.store.parts(expression.head,'ValidatedRealization')].filter(p=>match(values(p.expression)[0],expression,new Map())).map(p=>p.support));
         try {
@@ -85,7 +93,7 @@ export class ProjectCore {
       try{const value=operation(...args);if(value&&typeof value.then==='function')return value.then(result=>{record('capability');return result;},error=>{record('capability-failed',error.message);throw error;});record('capability');return value;}
       catch(error){record('capability-failed',error.message);throw error;}
     };
-    this.evaluator = new Evaluator(this.store, capabilities);
+    this.evaluator = new Evaluator(this.store, capabilities, {onRealization:support=>this.responseEvidence?.push(support)});
   }
   boot() {
     const manifest = this.bundle.manifest;
@@ -154,7 +162,7 @@ export class ProjectCore {
     });
   }
   validateEvidence(expressions) {
-    const forbidden = new Set(['AnswerAssessment','AnswerRequirement','ReviewBelow','NoTeacherReview','LearningFallback','ModelLearningPolicy','ConstructionWeight','MaximumAttempts','AttributedMeaning','EvidenceReading','EvidenceObservation','MaximumPassages','RevisitBudget','MaximumSearchPages','MaximumRelatedProperties','RelationPath','RelationBinding','ContextualArgument','ArgumentHint','ContextFor','RejectedReply','MaximumMeasurements','ReadForm','ContextHint','Clarification','DecodedValue','Frame','ImplementationLesson','SenseIdentity','ValueMapping','MaximumPasses','MaximumJobs','MaximumDecodings','MaximumMilliseconds','MaximumTypeDepth','MaximumTypeNodes','TypeEvidence','Realization', 'Construction', 'Native', 'ValidatedProgram', 'ValidatedRealization', 'StarterProcedure', 'StarterLesson', 'Capability', 'Arity', 'Commutative', 'MinimumExamples', 'MaximumExpressions', 'Adapter', 'Endpoint', 'Revision', 'Priority', 'LearningRate', 'Margin', 'MaximumStates', 'MaximumCandidates', 'MaximumSpan', 'RequestTimeout', 'MaximumBytes', 'TickBudget','MaximumRequests','MaximumResearchMilliseconds','SearchLimit','CacheMilliseconds','EndTimeProperty','PointInTimeProperty','ResearchAnswer','KnowledgeFact']);
+    const forbidden = new Set(['LearnableType','MemoryObject','MemoryBinding','MemoryAttention','MemoryRetention','MemoryScore','FocusWindow','MaximumMemoryObjects','RecipeFact','Scope','IngredientSection','ProcedureSection','OptionalMarker','AnswerAssessment','AnswerRequirement','ReviewBelow','NoTeacherReview','LearningFallback','ModelLearningPolicy','ConstructionWeight','MaximumAttempts','AttributedMeaning','EvidenceReading','EvidenceObservation','MaximumPassages','RevisitBudget','MaximumSearchPages','MaximumRelatedProperties','RelationPath','RelationBinding','ContextualArgument','ArgumentHint','ContextFor','RejectedReply','MaximumMeasurements','ReadForm','ContextHint','Clarification','DecodedValue','Frame','ImplementationLesson','SenseIdentity','ValueMapping','MaximumPasses','MaximumJobs','MaximumDecodings','MaximumMilliseconds','MaximumTypeDepth','MaximumTypeNodes','TypeEvidence','Realization', 'Construction', 'Native', 'ValidatedProgram', 'ValidatedRealization', 'StarterProcedure', 'StarterLesson', 'Capability', 'Arity', 'Commutative', 'MinimumExamples', 'MaximumExpressions', 'MaximumReusableBlocks', 'MaximumProcedureInspections', 'Adapter', 'Endpoint', 'Revision', 'Priority', 'LearningRate', 'Margin', 'MaximumStates', 'MaximumCandidates', 'MaximumSpan', 'RequestTimeout', 'MaximumBytes', 'TickBudget','MaximumRequests','MaximumResearchMilliseconds','SearchLimit','CacheMilliseconds','EndTimeProperty','PointInTimeProperty','ResearchAnswer','KnowledgeFact']);
     const visit = expression => { if (!isTerm(expression)) return; if (forbidden.has(expression.head)) throw new Error('Evidence cannot install behavior or policy: ' + expression.head); for (const a of expression.args) visit(a.value); };
     for (const expression of expressions) visit(expression);
   }
@@ -216,7 +224,7 @@ export class ProjectCore {
       }
     }
     const input = capture(text);
-    const episodeId = episode ?? this.store.put(call('Episode', [input.expression], { profile, context, sequence: this.sequence() }), { source: 'user:episode' });
+    const episodeId = episode ?? this.store.put(call('Episode', [input.expression], { profile, context, receivedAt:this.clock().toISOString(),timeZone:this.timeZone,sequence: this.sequence() }), { source: 'user:episode' });
     const traceRun='run-'+digest(episodeId+'|'+this.store.traces({limit:1}).at(-1)?.sequence+'|'+Date.now());
     this.trace(traceRun,episodeId,'request.started',{text,profile,context:format(context),learn,teacherEnabled:Boolean(this.modelLearner?.enabled),resumed:Boolean(episode)});
     try {
@@ -289,7 +297,7 @@ export class ProjectCore {
       }
     }
     if (this.store.parts('Respond', 'Realization').length) {
-      this.responseProfile=profile;
+      this.responseProfile=profile;this.responseEpisode=episodeId;this.responseReading=readingId;this.responseMeaning=status==='resolved'?format(best.meaning):null;
       this.responseEvidence=[];this.executionTrace=[];
       const run = retry?{value:retry.reply,trace:[]}:await this.evaluator.evaluate(term('Respond', result)); reply = run.value;
       if(retry){reply=call(reply.head,values(reply),Object.fromEntries([...reply.args.filter(a=>a.name!==undefined).map(a=>[a.name,a.value]),['clarifiedEpisode',field(this.store.record(clarification).expression,'target')],...(retry.status==='resolved'?[]:[['pending',true]])]));this.responseEvidence.push(clarification,retry.readingId,retry.replyId);}
@@ -298,7 +306,7 @@ export class ProjectCore {
       replyId = this.store.put(call('Reply', [reply], { episode: episodeId, reading: readingId, sources:term('List',...new Set(this.responseEvidence)),sequence: this.sequence() }),
         { source: 'derived:response', supports: [...new Set([readingId, ...executionSupports, ...this.responseEvidence, ...(field(reply,'evidence') ? [field(reply,'evidence')] : []), ...run.trace.flatMap(t => t.support ? [t.support] : t.supports ?? [])])] });
       this.responseEvidence=undefined;this.executionTrace=undefined;
-      this.responseProfile=undefined;
+      this.responseProfile=undefined;this.responseEpisode=undefined;this.responseReading=undefined;this.responseMeaning=undefined;
     }
     let assessment=await assessAnswer(this,{episode:episodeId,reading:readingId,reply,replyId,analysis,status});
     if(learn && assisted && this.modelLearner && !assistance && (field(reply,'pending',false)||assessment.review)) {
@@ -316,7 +324,7 @@ export class ProjectCore {
     }
     this.trace(traceRun,episodeId,'request.completed',{reading:readingId,reply:replyId,assessment:assessment.id,score:assessment.score,status:retry?.status??(field(reply,'pending',false)?'learning':status),reasons:assessment.reasons});
     return { traceRun, episodeId, readingId, reply, replyId, assessment, input, status:retry?.status??(field(reply,'pending',false)?'learning':status), result, spoken, candidates: analysis.candidates, attempts:[...attempts,...(retry?.attempts??[])],clarification, exhausted: analysis.exhausted };
-    }catch(error){this.executionTrace=undefined;this.responseEvidence=undefined;this.responseProfile=undefined;this.trace(traceRun,episodeId,'request.failed',{message:error.message,reason:'The request stopped before completion; partial learning and trace remain'});throw error;}
+    }catch(error){this.executionTrace=undefined;this.responseEvidence=undefined;this.responseProfile=undefined;this.responseEpisode=undefined;this.responseReading=undefined;this.responseMeaning=undefined;this.trace(traceRun,episodeId,'request.failed',{message:error.message,reason:'The request stopped before completion; partial learning and trace remain'});throw error;}
   }
   async resume(episodeId, options = {}) {
     const episode = this.store.record(episodeId);
@@ -359,11 +367,39 @@ export class ProjectCore {
       const [input,meaning,pattern,body]=values(seed.expression);
       await this.teachCode(typeof body==='string'?{input,meaning,pattern,language:'javascript',code:body}:{input,meaning,pattern,body},{source:'starter:'+seed.id,supports:[seed.id]});
     }
+    await this.refreshPrograms();
   }
-  async teachCode(example,options={}) { return learnCode(this,example,options); }
+  async teachCode(example,options={}) {
+    const result=await learnCode(this,example,options);
+    await this.refreshPrograms();
+    return result;
+  }
+  programEvidenceSignature(profile) {
+    const evidence=['WorkedExample','CodeExample','LearningValidation'].flatMap(head=>this.store.records(head));
+    const vocabulary=this.store.records('Concept').filter(r=>r.source!=='derived:program-induction' && (
+      values(r.expression)[0]?.head==='InductionPolicy' ||
+      values(r.expression).some(p=>isTerm(p)&&['Realization','Capability'].includes(p.head))));
+    return digest(profile+'|'+[...evidence,...vocabulary].map(r=>r.id).sort().join('|'));
+  }
+  recordInduction(ids,result,source,profile) {
+    const episode = this.store.records('Episode').filter(r => field(r.expression, 'profile', '') === profile).sort((a,b) => field(a.expression,'sequence',0)-field(b.expression,'sequence',0)).at(-1)?.id ?? 'notebook';
+    this.trace('induction-'+digest(ids.join('|')+'|'+this.store.version),episode,'learning.program.induced',{examples:ids,source,profile,learned:result.learned.map(p=>({id:p.id,program:format(p.program),reused:p.reused,examined:p.examined})),pending:result.pending,reason:'Test compositions of retained checked numeric procedures against varied outcomes; keep only a unique fitting program'});
+  }
+  async refreshPrograms(profile=this.profile) {
+    if(!this.store.records('WorkedExample').some(r=>field(r.expression,'profile','')===profile))return null;
+    this.programEvidenceVersions??=new Map();
+    const signature=this.programEvidenceSignature(profile);
+    if(this.programEvidenceVersions.get(profile)===signature)return null;
+    const result=await induce(this.store,this.evaluator,{profile,minimumExamples:this.policy('InductionPolicy','MinimumExamples'),maximumExpressions:this.policy('InductionPolicy','MaximumExpressions'),automatic:true});
+    this.programEvidenceVersions.set(profile,this.programEvidenceSignature(profile));
+    this.recordInduction([],result,'derived:vocabulary-revisit',profile);
+    return result;
+  }
   async teachOutcomes(examples, { source = 'user:worked-example', supports = [], profile = this.profile } = {}) {
     const ids = this.store.transaction(() => examples.map(example => addOutcome(this.store, example.input, example.output, { profile, source, supports })));
     const result = await induce(this.store, this.evaluator, { profile, minimumExamples: this.policy('InductionPolicy', 'MinimumExamples'), maximumExpressions: this.policy('InductionPolicy', 'MaximumExpressions') });
+    this.programEvidenceVersions??=new Map();this.programEvidenceVersions.set(profile,this.programEvidenceSignature(profile));
+    this.recordInduction(ids,result,source,profile);
     return { ids, ...result };
   }
   async tick({ budget = this.policy('LearningPolicy', 'TickBudget'), jobs, timeout } = {}) {

@@ -5,7 +5,7 @@ minimum version was not available for a separate compatibility run.
 
 ## Automated checks
 
-`npm test`: 117 tests pass. Coverage includes:
+`npm test`: 166 tests pass (current release; later sections detail additions). Coverage includes:
 
 - direct `.ncon` parsing/formatting, variable binding/shadowing, rule context,
   conflicts, cycles, residuals, and bounded evaluation;
@@ -268,3 +268,36 @@ unavailable; shared browser SQLite and DOM interaction coverage are retained.
   does not erase knowledge. UI previews are bounded; exports preserve full history.
 - Visual mobile browser QA remains unavailable in this managed environment.
   Existing responsive layouts, wrapping buttons and 44px controls are retained.
+
+## 0.11 reusable learning and episodic attention (2026-10-10)
+
+- Full suite: **166 tests passed**. Declaration check: **183** concepts; demo
+  passed. The workbench exercises the actual chat, list updates, explicit remember
+  marker, memory inspector and retained browser SQLite notebook.
+- Ten composition tests cover checked helper reuse, offline transfer, browser
+  retention, ambiguous procedures, conflicting definitions, profile/effect
+  exclusion, counterexamples, automatic revisiting after new learning, explicit
+  withdrawal and preserving strict-local failures. Teacher tests use fixtures.
+- Ten conversation tests cover timezone-aware clocks and observed-time formatting,
+  missing schedules, age versus birthday, dated clarification across reopen,
+  independent list instances, dated history retrieval, same-date ambiguity,
+  focus-window decay, explicit retention, new collection kinds and learned wording,
+  source-supported recipes, optional exclusions, unsupported substitutions,
+  inert source instructions, retraction, retrieval budgets and browser SQLite.
+- Live internet, fresh notebook, Gemini absent: created an eggs/chicken list;
+  `how do you make whipped cream?` retrieved Wikibooks' ingredient and procedure
+  sections and retained the original excerpt, recipe record and citation.
+  With acquisition disabled afterward, `oh no like one without vanilla` omitted
+  the source-marked optional flavoring, and `oh and sugar and heavy cream` extended
+  the earlier list. There were two episodic objects and **zero** explicit retention
+  markers. These were actual external responses, separate from source fixtures.
+- Lists use generic memory objects/relationships, not a permanent shopping-list
+  slot. Unpinned objects remain in local conversation history; explicit remembering
+  marks stronger retrieval retention. No automatic deletion or neural memory
+  consolidation is claimed. Ranking is authored and symbolic, not trained attention.
+- Existing responsive styles retain wrapping content, 16px form fields and 44px
+  controls. DOM and actual browser SQLite checks passed; visual phone/browser QA
+  was unavailable because this environment has no supported control-browser skill.
+- Recipe acquisition currently uses one configured source adapter and literal
+  ingredient matching. Arbitrary substitutions, broad associative reference
+  resolution and unfamiliar language workflows still require further learning.

@@ -163,11 +163,40 @@ or concurrently coordinated learning service.
 
 `WorkedExample(original_input, observed_result)` is evidence. Numeric alignment
 turns numbers into slots while retaining literal language. Bounded program search
-composes `InductionPrimitive` capabilities and keeps only a unique program fitting
-all retained examples. It stores a `Construction`, `Realization`, and
+composes `InductionPrimitive` capabilities and retained checked numeric procedures,
+keeping only a unique normal-form program fitting all retained examples. It stores a `Construction`, `Realization`, and
 `ValidatedProgram`, with dependencies on the examples, primitives, and policy.
 Later counterexamples withdraw the old program and dependent replies. Source
 acquisition uses the same `teachOutcomes` API as a user observation.
+
+Version 0.11 discovers reusable two-parameter numeric realizations from checked
+code examples, checked model proposals, and previously induced programs. Code and
+model realizations need at least two distinct numeric execution checks. A helper's
+entire active dependency graph must belong to the current profile and remain
+available. Helpers are expanded into bounded numeric normal forms; equal wrappers
+are deduplicated, while different programs fitting the same evidence remain
+ambiguous. Stored implementations keep the concept calls and `ComposedFrom`
+relationships, with dependencies on the original checks, helper declarations,
+examples and policies. Retracting any prerequisite withdraws the composed procedure
+and dependent answers. A procedure being revised, including its dependents, cannot
+serve as evidence for its replacement. New checked code or model vocabulary
+automatically revisits retained outcomes, and restored notebooks do the same on
+preparation. The cache tracks evidence/vocabulary changes rather than ordinary chat
+messages. Explicit withdrawals are retained as constraints on automatic revival;
+a deliberate new outcome lesson can request a fresh derivation.
+
+This is a finite extension of induction, not a general program synthesizer. It
+currently aligns two to four numeric input slots and uses each input slot once in
+the composition tree; a checked helper may internally repeat parameters or use
+constants. Eligible helpers use finite numeric literals, arithmetic, lexical local
+bindings whose values are used, and other checked helpers. Branches, effects, context-dependent rules,
+conflicting/overloaded helpers, and circular calls are excluded from this search.
+`InductionPolicy` bounds unique expressions (1024), reusable blocks (16), and
+procedure inspections (128); structural expansion is limited to 256 nodes and
+evidence traversal to 512 records. Exhausted expression search does not install a
+guess. The retained `learning.program.induced` audit event records reused concepts,
+examined expression counts and pending outcomes. These limits are host mechanics;
+they do not map English words or question forms to operations.
 
 The dataset adapter reads configured input/output columns from a bounded external
 slice. It matches structural patterns, ignores operation metadata, and excludes the
@@ -579,3 +608,60 @@ backup** exports the full restorable notebook, including audit history. The JSON
 is intended for inspection and analysis; it is not an executable import format.
 CLI `:history("learning-history.json")` exports the same data. Export includes
 personal input and retained evidence; the user explicitly controls downloading it.
+
+## Episodic memory and attention (0.11)
+
+Conversation objects use one graph: `MemoryObject(kind)`, versioned
+`MemoryBinding(reference, relation, value)`, `MemoryAttention(reference)` and
+`MemoryRetention(reference, "explicit")`. Every record is profile-scoped and tied
+to a committed reading, its original episode, date, timezone, and applicable
+realizations. Retraction invalidates derived memories and replies without erasing
+the user's words. Native facilities create references, store/query relationships,
+filter kinds and dates, and return unresolved alternatives. There is no shopping
+list table, recipe session table, or host English question dispatcher.
+
+`.ncon` defines kinds, item parsing, role bindings, workflows and `MemoryScore`.
+The starter score ranks compatible attended objects by distance in conversation
+turns. `MemoryPolicy` bounds the active focus window, retrieval candidates and
+selection margin. Exact temporal lookup searches episodes regardless of focus.
+Two lists from the same date stay unresolved rather than choosing the first one.
+A recipe can become the immediate focus while a compatible list remains available
+for a later addition. Creating a new list creates a distinct object; modifying it
+creates a relationship version. Replaying a request doesn't reset a newer list or
+move a relative birthday to today's date. Clock-format changes format the attended
+clock observation; a new clock request observes the runtime clock anew.
+
+Default objects are conversation memories, not installed general concepts or
+permanent personal facts. An explicit remember instruction marks an object for
+stronger retention and retrieval beyond the focus window. Conversation history is
+still persisted in the local notebook, so an unpinned object can be retrieved by a
+dated cue after reopening. There is no automatic deletion or memory consolidation
+policy yet. Losing attention, remaining in episode history, explicit retention,
+and generalizing reusable knowledge are distinct operations.
+
+LLM attention suggests context-sensitive selection; complementary learning systems
+research motivates separating rapid episode retention from reusable learned
+structure. These are architectural inspirations, not a claim that the current
+symbolic ranking reproduces neural attention or brain memory. Broad associative
+retrieval, learned attention weights, replay-driven consolidation, semantic
+similarity over arbitrary concepts and automatic memory compression remain work.
+References: https://arxiv.org/abs/1706.03762 and
+https://stanford.edu/~jlmcc/papers/McCMcNaughtonOReilly95.pdf .
+
+The session pack provides editable starter frames for time, schedules, person
+relations, collections and recipes. Generic collection workflows accept new kinds
+and learned wordings. Optional teacher proposals can teach data constructions
+using existing workflows; `LearnableType` marks permitted extension kinds. The
+teacher cannot install memory mutations as executable code or source facts.
+Source reading never executes the instructions it interprets.
+
+A MediaWiki adapter reads configured ingredient and procedure sections, retains
+raw text, revision, citation and license, and creates source-supported `RecipeFact`
+records. It also submits the excerpt to the ordinary inert evidence reader.
+Optional ingredients may be omitted when the source marks them optional and the
+method does not still mention the exclusion. Mandatory substitutions require an
+alternative source-supported recipe; they are not invented. Ingredient matching
+currently uses literal text, not learned allergen/synonym reasoning. Acquisition
+is bounded to six configured search candidates and the shared request deadline.
+This adapter supplies structure from a source schema; it does not claim to discover
+arbitrary instruction extraction or culinary semantics from prose.

@@ -11,7 +11,8 @@
     "notation.ncon",
     "evidence.ncon",
     "model-learning.ncon",
-    "assessment.ncon"
+    "assessment.ncon",
+    "session.ncon"
   ],
   "required": [
     "Hear",

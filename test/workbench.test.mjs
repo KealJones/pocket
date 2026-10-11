@@ -52,6 +52,10 @@ test('workbench controls teach real concepts and retain exact pieces, rewards, a
     submit('codeForm');await settled();
     $('message').value='retrieve https://example.net';submit('talkForm');await settled();
     assert.equal([...$('history').querySelectorAll('.assistant-words')].at(-1).textContent,'page content');
+    $('codeInput').value='mix 2 with 3';$('codeMeaning').value='Mix(2,3)';$('codePattern').value='Mix($a,$b)';$('codeLanguage').value='javascript';$('codeBody').value='function mix(a,b) { return 2*a+b; }';$('codeChecks').value='List(Check(Mix(2,3),7),Check(Mix(5,4),14))';submit('codeForm');await settled();
+    for(const [input,output]of [['3 flerp 5 with 4',44],['8 flerp 2 with 3',54],['4 flerp 7 with 2',30]]) { $('outcomeText').value=input;$('outcomeValue').value=output;submit('outcomeForm');await settled(); }
+    $('message').value='6 flerp 9 with 5';submit('talkForm');await settled();
+    assert.equal([...$('history').querySelectorAll('.assistant-words')].at(-1).textContent,'105');
     $('message').value='what is 5*4?';submit('talkForm');await settled();
     assert.equal([...$('history').querySelectorAll('.assistant-words')].at(-1).textContent,'20');
     assert.match([...$('history').querySelectorAll('.inspector')].at(-1).textContent,/Learning during this request/);
@@ -70,13 +74,22 @@ test('workbench controls teach real concepts and retain exact pieces, rewards, a
     $('message').value='letter notation';submit('talkForm');await settled();
     assert.equal([...$('history').querySelectorAll('.assistant-words')].at(-1).textContent,'21');
     assert.match([...$('history').querySelectorAll('.turn')].at(-1).textContent,/For your earlier question: what is ab\*3\?/);
+    for(const prompt of ['get me the time','in military time','my best friend Greg turned 30 yesterday!','who is my best friend','can you make me a shopping list with eggs, and chicken on it','oh and sugar']) { $('message').value=prompt;submit('talkForm');await settled(); }
+    assert.equal([...$('history').querySelectorAll('.assistant-words')].at(-1).textContent,'- eggs\n- chicken\n- sugar');
+    assert.match($('concepts').textContent,/ShoppingList\(\) · conversation memory/);
+    assert.doesNotMatch($('concepts').textContent,/ShoppingList\(\) · explicitly remembered/);
+    $('message').value='remember this list';submit('talkForm');await settled();
+    assert.match($('concepts').textContent,/ShoppingList\(\) · explicitly remembered/);
     const SQL = await initSQL(), vault = await openVault(indexedDB), bytes = await vault.read();
     const manifest = JSON.parse(readFileSync(new URL('../packs/manifest.json', import.meta.url), 'utf8'));
     const bundle = { manifest, packs: Object.fromEntries(manifest.packs.map(name => [name, readFileSync(new URL('../packs/' + name, import.meta.url), 'utf8')])) };
     const restored = new ProjectCore({ store: new BrowserStore(SQL, bytes), bundle, online: false, profile: 'keal' });
     try {
+      assert.equal((await restored.turn('show my shopping list')).reply.args.find(a=>a.name==='text').value,'- eggs\n- chicken\n- sugar');
+      assert.equal((await restored.turn('who is my best friend')).reply.args.find(a=>a.name==='answer').value,'Greg');
       assert.equal((await restored.turn('Emmy returns the cookie')).status, 'resolved');
       assert.equal(restored.store.records('Feedback').length, 1);
+      assert.equal((await restored.turn('6 flerp 9 with 5')).reply.args.find(a=>a.name==='answer').value,105);
       assert.ok(restored.store.exportLearningHistory().events.some(e=>e.kind==='decision.selected'));
       assert.equal((await restored.turn('blorple')).spoken, 'Blorple()');
       assert.equal((await restored.turn('what is 2 plus 2?')).reply.args.find(a=>a.name==='answer').value,4);
