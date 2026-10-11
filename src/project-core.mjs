@@ -12,6 +12,7 @@ import { Research } from './research.mjs';
 import { assessAnswer } from './assessment.mjs';
 import { ModelLearner } from './model-learning.mjs';
 import { Learner } from './learning.mjs';
+import {readDictionary,lexicalRoutes} from './dictionary.mjs';
 import { gateContext, previousTarget, readingMeanings } from './contextual-eligibility.mjs';
 import { term, call, values, field, isTerm, format, parse, parseMany, match } from './ncon.mjs';
 
@@ -163,13 +164,14 @@ export class ProjectCore {
     });
   }
   validateEvidence(expressions) {
-    const forbidden = new Set(['TeacherTimeoutMilliseconds','MaximumLexicalJobs','EvidenceReview','SpellingLesson','ReadSpelling','AcquisitionPolicy','SurfaceRepairPolicy','Enabled','MinimumCharacters','MaximumCharacters','MaximumDistance','MaximumRatio','MaximumSurfaceSpan','MaximumScans','MaximumProposals','Penalty','SurfaceRepair','ContextRequirement','PreviousAllowsHint','LearnableType','MemoryObject','MemoryBinding','MemoryAttention','MemoryRetention','MemoryScore','FocusWindow','MaximumMemoryObjects','RecipeFact','Scope','IngredientSection','ProcedureSection','OptionalMarker','AnswerAssessment','AnswerRequirement','ReviewBelow','NoTeacherReview','LearningFallback','ModelLearningPolicy','ConstructionWeight','MaximumAttempts','AttributedMeaning','EvidenceReading','EvidenceObservation','MaximumPassages','RevisitBudget','MaximumSearchPages','MaximumRelatedProperties','RelationPath','RelationBinding','ContextualArgument','ArgumentHint','ContextFor','RejectedReply','MaximumMeasurements','ReadForm','ContextHint','Clarification','DecodedValue','Frame','ImplementationLesson','SenseIdentity','ValueMapping','MaximumPasses','MaximumJobs','MaximumDecodings','MaximumMilliseconds','MaximumTypeDepth','MaximumTypeNodes','TypeEvidence','Realization', 'Construction', 'Native', 'ValidatedProgram', 'ValidatedRealization', 'StarterProcedure', 'StarterLesson', 'Capability', 'Arity', 'Commutative', 'MinimumExamples', 'MaximumExpressions', 'MaximumReusableBlocks', 'MaximumProcedureInspections', 'Adapter', 'Endpoint', 'Revision', 'Priority', 'LearningRate', 'Margin', 'MaximumStates', 'MaximumCandidates', 'MaximumSpan', 'RequestTimeout', 'MaximumBytes', 'TickBudget','MaximumRequests','MaximumResearchMilliseconds','SearchLimit','CacheMilliseconds','EndTimeProperty','PointInTimeProperty','ResearchAnswer','KnowledgeFact']);
+    const forbidden = new Set(['DictionaryLearningPolicy','MaximumSenses','MaximumDefinitionCharacters','MaximumReferenceCharacters','MaximumReferenceWords','MaximumReferenceDepth','MaximumRoutes','MaximumRouteInspections','DocumentReader','MeaningSection','LanguageSection','DefinitionPrefix','TemplateMapping','UnresolvedSense','LexicalEquivalent','DefinitionParaphrase','DictionarySense','DictionaryExample','DictionaryObservation','TeacherTimeoutMilliseconds','MaximumLexicalJobs','EvidenceReview','SpellingLesson','ReadSpelling','AcquisitionPolicy','SurfaceRepairPolicy','Enabled','MinimumCharacters','MaximumCharacters','MaximumDistance','MaximumRatio','MaximumSurfaceSpan','MaximumScans','MaximumProposals','Penalty','SurfaceRepair','ContextRequirement','PreviousAllowsHint','LearnableType','MemoryObject','MemoryBinding','MemoryAttention','MemoryRetention','MemoryScore','FocusWindow','MaximumMemoryObjects','RecipeFact','Scope','IngredientSection','ProcedureSection','OptionalMarker','AnswerAssessment','AnswerRequirement','ReviewBelow','NoTeacherReview','LearningFallback','ModelLearningPolicy','ConstructionWeight','MaximumAttempts','AttributedMeaning','EvidenceReading','EvidenceObservation','MaximumPassages','RevisitBudget','MaximumSearchPages','MaximumRelatedProperties','RelationPath','RelationBinding','ContextualArgument','ArgumentHint','ContextFor','RejectedReply','MaximumMeasurements','ReadForm','ContextHint','Clarification','DecodedValue','Frame','ImplementationLesson','SenseIdentity','ValueMapping','MaximumPasses','MaximumJobs','MaximumDecodings','MaximumMilliseconds','MaximumTypeDepth','MaximumTypeNodes','TypeEvidence','Realization', 'Construction', 'Native', 'ValidatedProgram', 'ValidatedRealization', 'StarterProcedure', 'StarterLesson', 'Capability', 'Arity', 'Commutative', 'MinimumExamples', 'MaximumExpressions', 'MaximumReusableBlocks', 'MaximumProcedureInspections', 'Adapter', 'Endpoint', 'Revision', 'Priority', 'LearningRate', 'Margin', 'MaximumStates', 'MaximumCandidates', 'MaximumSpan', 'RequestTimeout', 'MaximumBytes', 'TickBudget','MaximumRequests','MaximumResearchMilliseconds','SearchLimit','CacheMilliseconds','EndTimeProperty','PointInTimeProperty','ResearchAnswer','KnowledgeFact']);
     const visit = expression => { if (!isTerm(expression)) return; if (forbidden.has(expression.head)) throw new Error('Evidence cannot install behavior or policy: ' + expression.head); for (const a of expression.args) visit(a.value); };
     for (const expression of expressions) visit(expression);
   }
+  lexicalOptions(){return Object.fromEntries([['maximumDepth','MaximumReferenceDepth'],['maximumRoutes','MaximumRoutes'],['maximumInspections','MaximumRouteInspections']].map(([key,head])=>[key,this.policy('DictionaryLearningPolicy',head)]));}
   async analyze(input, { profile = this.profile, context = term('Context'), episode, repair=true } = {}) {
     const options={
-      profile, context, maximumStates: this.policy('InterpretationPolicy', 'MaximumStates'),
+      profile, context, dictionaryPolicy:this.lexicalOptions(), maximumStates: this.policy('InterpretationPolicy', 'MaximumStates'),
       maximumCandidates: this.policy('InterpretationPolicy', 'MaximumCandidates'), maximumSpan: this.policy('InterpretationPolicy', 'MaximumSpan'),
       score: async (evidence, expectation, holes) => {
         const evaluation = await this.evaluator.evaluate(term('CandidateScore', evidence, expectation, holes));
@@ -459,7 +461,7 @@ export class ProjectCore {
           this.store.updateJob(job.id, 'needs-evidence', 'Requires a labelled example, contextual evidence, or a structured construction source');
           attempts.push(this.store.job(job.id)); continue;
         }
-        if (this.store.surfaces(job.query, this.profile).length || this.store.records('Concept').some(r => r.source === 'derived:program-induction' && format(r.expression).toLowerCase().includes('literal(' + JSON.stringify(job.query.toLowerCase()) + ')'))) {
+        if (this.store.surfaces(job.query, this.profile).some(s=>lexicalRoutes(this.store,s.target,this.profile,this.lexicalOptions()).routes.length) || this.store.records('Concept').some(r => r.source === 'derived:program-induction' && format(r.expression).toLowerCase().includes('literal(' + JSON.stringify(job.query.toLowerCase()) + ')'))) {
           this.store.updateJob(job.id, 'done', 'Already supported by retained knowledge'); attempts.push(this.store.job(job.id)); continue;
         }
         if (!this.online) { this.store.updateJob(job.id, 'waiting', 'Online acquisition is disabled; retained for a future tick'); attempts.push(this.store.job(job.id)); continue; }
@@ -496,6 +498,7 @@ export class ProjectCore {
                 this.store.put(expression, { source: 'source:' + source.identity, supports: [acquisition, ...rawSupports] }); learned = true;
               }
             });
+            for(const id of rawSupports)if(this.store.record(id)?.expression.head==='SourceDocument'){const senses=readDictionary(this,id);if(senses.length){learned=true;details.push(`${source.identity}: read ${senses.length} separate dictionary senses`);}}
             if (acquired.examples?.length) {
               const result = await this.teachOutcomes(acquired.examples, { source: 'source:' + source.identity, supports: rawSupports });
               if (result.learned.length) learned = true;
@@ -506,7 +509,7 @@ export class ProjectCore {
           } catch (error) { details.push(`${source.identity}: ${error.message}`); }
         }
         // A search hit alone is not evidence that this exact query is a known surface.
-        const exact = this.store.surfaces(job.query, this.profile).length > 0 || this.store.records('Concept').some(r => r.source === 'derived:program-induction' && format(r.expression).toLowerCase().includes('literal(' + JSON.stringify(job.query.toLowerCase()) + ')'));
+        const exact = this.store.surfaces(job.query, this.profile).some(s=>lexicalRoutes(this.store,s.target,this.profile,this.lexicalOptions()).routes.length) || this.store.records('Concept').some(r => r.source === 'derived:program-induction' && format(r.expression).toLowerCase().includes('literal(' + JSON.stringify(job.query.toLowerCase()) + ')'));
         this.store.updateJob(job.id, learned && exact ? 'done' : 'waiting', details.join('; ') + (raw && !learned ? '; source text awaits interpretation' : ''));
         attempts.push(this.store.job(job.id));
       }

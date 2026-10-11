@@ -787,3 +787,31 @@ that control. Secrets remain in the existing Secrets Store binding. HTTP failure
 remain resumable work, not fabricated learning. Configuration and source accompany
 the public checkpoint. Provider latency/availability are not guaranteed.
 Reference: https://ai.google.dev/gemini-api/docs/generate-content/thinking .
+
+### Independent dictionary learning (0.13.0)
+
+`dictionary.mjs` is a source-schema reader and bounded graph traversal primitive.
+It reads configured language and lexical sections in retained Wiktionary markup,
+keeps each sense, labels, and usage line with exact UTF-16 spans, and never evaluates
+wikitext templates. `.ncon` source configuration supplies section names, template
+relationship mappings, an infinitive definition prefix and traversal budgets.
+Unknown templates remain residual markup. Inflection observations do not erase
+tense or number by becoming unrestricted synonyms.
+
+Explicit equivalent-form templates and complete short definitional paraphrases
+create **sense-local proposals**, not global spelling replacements or `SameAs`.
+The lattice follows their supported routes to retained senses; competing senses
+remain alternatives. Missing reference terms enter the existing lexical worklist
+in the same request. Acquired external identities are bound before the next job is
+selected. Existing frames and checked implementation lessons then compose and
+execute normally. No arithmetic or greeting dispatch was added to the host.
+
+An opaque dictionary sense is not a complete understood answer. Definitions with
+unknown templates, negation or additional modifiers cannot be shortened to a
+convenient matching keyword. Reference traversal is bounded in depth, outputs and
+inspections, including unproductive cycles. Every route carries the source sense,
+source snapshot and target evidence dependencies. A new revision of the same
+source page withdraws the old snapshot and its derived answers. This path does not
+claim that every definition is understandable or that dictionary metadata alone
+constitutes a new executable role frame. Larger definitions and usage examples
+are retained for further learning rather than automatically executed.

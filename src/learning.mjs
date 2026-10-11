@@ -157,7 +157,7 @@ export class Learner {
       const visit=x=>{if(!isTerm(x))return;if(x.head==='Literal'&&typeof values(x)[0]==='string')for(const t of capture(values(x)[0]).tokens)if(t.kind==='word')literals.add(t.raw.normalize('NFC').toLowerCase());x.args.forEach(a=>visit(a.value));};
       definition.parts.filter(p=>p.head==='Construction').forEach(visit);
     }
-    const covered=new Set(analysis.edges.filter(e=>!e.repair).flatMap(e=>Array.from({length:e.end-e.start},(_,i)=>i+e.start)));
+    const covered=new Set(analysis.edges.filter(e=>!e.repair&&!e.unresolved).flatMap(e=>Array.from({length:e.end-e.start},(_,i)=>i+e.start)));
     for(const fragment of analysis.fragments??[])for(const piece of fragment.consumed??[])if(piece.formReading)for(let i=piece.start;i<piece.end;i++)covered.add(i);
     return analysis.units.flatMap((u,i)=>u.kind==='word'&&!u.protected&&!covered.has(i)&&!literals.has(u.raw.normalize('NFC').toLowerCase())?[u.raw]:[]);
   }
@@ -212,16 +212,17 @@ export class Learner {
       const chosen=this.best(analysis);
       if(chosen&&!this.store.parts(chosen.meaning?.head,'LearningFallback').length){await this.realize(chosen.meaning,steps);break;}
       if(!acquire||!p.online||attempted.size>=jobs) break;
-      const frontier=this.unknowns(input,analysis);
+      const frontier=[...new Set([...this.unknowns(input,analysis),...(analysis.lexicalNeeds??[])])];
       const current=this.store.agenda().filter(j=>j.kind==='composition'&&j.query===input.source||j.kind==='lexical'&&frontier.includes(j.query));
       for(const query of frontier)if(!current.some(j=>j.kind==='lexical'&&j.query===query)) {const id=this.store.enqueue(query,'lexical');current.push(this.store.job(id));}
       // First accept any supplied outcomes; then acquire meanings, rather than
       // starving the current request behind an old notebook's unfinished work.
-      current.sort((a,b)=>(a.kind==='composition'?0:1)-(b.kind==='composition'?0:1));
+      current.sort((a,b)=>(a.kind==='composition'?0:analysis.lexicalNeeds?.includes(a.query)?1:2)-(b.kind==='composition'?0:analysis.lexicalNeeds?.includes(b.query)?1:2));
       const job=current.find(j=>!attempted.has(j.id));if(!job)break;
       attempted.add(job.id);
       if(traceRun)p.trace(traceRun,episode,'learning.job.selected',{job:job.id,kind:job.kind,query:job.query,reason:job.kind==='composition'?'Seek independent example outcomes first':'Acquire a currently uncovered lexical sense',alternatives:current.filter(j=>!attempted.has(j.id)).slice(0,8).map(j=>({id:j.id,kind:j.kind,query:j.query}))});
       steps.push(...await p.tick({budget:1,jobs:[job],timeout:Math.max(1,milliseconds-(Date.now()-started))}));
+      this.bindSenses();
       analysis=await p.analyze(input,{profile,context,episode});
     }
     // Last acquired evidence must be usable even at the final worklist boundary.

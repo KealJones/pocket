@@ -140,7 +140,7 @@ export class Sources {
       const revision = page.revisions[0], raw = revision.slots?.main?.content;
       if (typeof raw !== 'string') continue;
       const pageUrl = new URL('/wiki/' + encodeURIComponent(page.title), source.endpoint).href;
-      records.push(call('SourceDocument', [raw], { title: page.title, url: pageUrl, history: pageUrl + '?action=history', provider: term(source.identity), license: source.license, revision: revision.revid ?? null, contributor: revision.user ?? null, interpreted: false }));
+      records.push(call('SourceDocument', [raw], { title: page.title, url: pageUrl, history: pageUrl + '?action=history', provider: term(source.identity), license: source.license, reader: partValue(source.parts,'DocumentReader')??null, contentType:'text/x-wiki', language:source.language, revision: revision.revid ?? null, contributor: revision.user ?? null, interpreted: false }));
     }
     return { records, queryUrl: response.url };
   }

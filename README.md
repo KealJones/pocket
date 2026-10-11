@@ -341,3 +341,10 @@ requires the notebook to be open and a request or investigation cycle to run.
 
 See [VERIFICATION.md](VERIFICATION.md) for checkpoint checks, live-service results
 and remaining limits.
+
+Pocket 0.13 adds independent dictionary learning: unfamiliar words can lead to
+separate Wiktionary senses, explicit equivalent forms or short definitions, then
+to another term investigated during the same request. Those supported links reuse
+the existing concept/frame/checked-realization pipeline and survive offline.
+The Knowledge tab shows retained source senses and lets you withdraw them.
+This improves the learner; it does not require preloading a large vocabulary.

@@ -63,11 +63,29 @@ not a new screenshot-based iOS validation.
 
 Arbitrary prose still needs adequate learned constructions and semantic evidence.
 Dictionary text is not automatically a reliable role frame or executable program.
-HTML and dictionary markup need structural readers; the progressive path currently
-handles plain-text sources and excerpts. The code learner handles a restricted
+HTML needs a structural reader. Dictionary markup now has a conservative structural
+reader; the progressive sentence path handles plain-text sources and excerpts. The code learner handles a restricted
 checked subset, not arbitrary program synthesis or conversion. Episodic ranking
 and orthographic distance are mechanical models, not neural attention. Reading
 fingerprints conservatively reconsider more evidence than necessary. Learning
 runs during requests/investigation cycles while the browser notebook is open;
 there is no server learning daemon, general consolidation or automatic forgetting.
 Provider availability and rate limits remain external constraints.
+
+## 0.13.0 independent dictionary experiment
+
+New tests exercise one request learning an opaque surface through a second
+unfamiliar dictionary term, composing a retained role frame, checking its
+implementation, and executing it without a teacher. The resulting knowledge
+transfers to a different argument after actual browser SQLite reopen, offline.
+Other checks cover exact source spans, language scope, conflicting senses,
+unknown templates, negation, inflection, cycles and source withdrawal.
+
+A live experiment deliberately returned an empty Wikidata search for `times` to
+force the new path. All Wiktionary and subsequent Wikidata retrievals were real.
+Pocket read the real `times` definition `To multiply`, investigated `multiply`,
+bound the source identity to a retained concept and answered `what is 5 times 3?`
+with `15`. It then answered `what is 7 times 4?` with `28` offline, with zero new
+network calls. This proves a constrained bridge plus frame/realization reuse;
+it does not prove arbitrary prose-to-program synthesis. A Gemini architecture
+brainstorm timed out with HTTP 504 and supplied no implementation ideas.

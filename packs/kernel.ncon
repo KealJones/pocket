@@ -38,3 +38,6 @@ Concept(Speak(),
 
 // Repairs add competing edges; they never rewrite observations or establish aliases.
 Concept(SurfaceRepairPolicy(),Enabled(1),MinimumCharacters(3),MaximumCharacters(64),MaximumDistance(2),MaximumRatio(0.34),MaximumSurfaceSpan(4),MaximumScans(8192),MaximumProposals(128),Penalty(0.5))
+
+// Budgets for structural reading and sense-local paraphrase traversal.
+Concept(DictionaryLearningPolicy(),MaximumSenses(64),MaximumDefinitionCharacters(8192),MaximumReferenceCharacters(128),MaximumReferenceWords(4),MaximumReferenceDepth(4),MaximumRoutes(64),MaximumRouteInspections(512))

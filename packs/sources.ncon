@@ -14,6 +14,14 @@ Concept(WikidataSource(), IsA(LearningSource()),
 // This adapter stores a fetched page as attributed raw evidence, not invented semantics.
 Concept(WiktionarySource(), IsA(LearningSource()),
   Adapter("mediawiki-text"), Endpoint("https://en.wiktionary.org/w/api.php"),
-  License("CC-BY-SA-4.0"), Language("en"), Priority(20))
+  License("CC-BY-SA-4.0"), Language("en"), Priority(20),
+  DocumentReader("wiktionary"),LanguageSection("English"),DefinitionPrefix("To "),
+  MeaningSection("Noun"),MeaningSection("Verb"),MeaningSection("Adjective"),MeaningSection("Adverb"),
+  MeaningSection("Preposition"),MeaningSection("Interjection"),MeaningSection("Contraction"),MeaningSection("Pronoun"),MeaningSection("Conjunction"),MeaningSection("Determiner"),MeaningSection("Proper noun"),MeaningSection("Symbol"),MeaningSection("Numeral"),
+  TemplateMapping("synonym of",LexicalEquivalent()),TemplateMapping("syn of",LexicalEquivalent()),
+  TemplateMapping("alternative form of",LexicalEquivalent()),TemplateMapping("alt form",LexicalEquivalent()),
+  TemplateMapping("alternative spelling of",LexicalEquivalent()),TemplateMapping("alt sp",LexicalEquivalent()),
+  TemplateMapping("abbreviation of",LexicalEquivalent()),TemplateMapping("abbr of",LexicalEquivalent()),
+  TemplateMapping("plural of",InflectedForm()),TemplateMapping("inflection of",InflectedForm()),TemplateMapping("infl of",InflectedForm()))
 Concept(WikipediaSource(),IsA(LearningSource()),Adapter("wikipedia-summary"),
   Endpoint("https://en.wikipedia.org/w/api.php"),License("CC-BY-SA-4.0"),Language("en"),Priority(30))

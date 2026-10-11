@@ -189,6 +189,13 @@ function concepts() {
     const details=node('details',undefined,'record');details.append(node('summary',heading),node('small','Learned from a structured source statement'),node('pre',format(fact.expression)));
     const button=node('button','Withdraw this fact');button.addEventListener('click',()=>act(()=>{const removed=project.store.retract(fact.id);notice('Withdrew the fact and '+(removed.length-1)+' dependent record(s).');}));details.append(button);$('concepts').append(details);
   }
+  for(const sense of project.store.records('DictionarySense')){
+    const document=project.store.record(field(sense.expression,'document')),title=field(document?.expression,'title','Dictionary entry'),gloss=field(sense.expression,'gloss','');
+    if(!(title+' '+gloss).toLowerCase().includes(search))continue;
+    const details=node('details',undefined,'record');details.append(node('summary',title+' · source sense'),node('p',gloss),node('small','Definition and scope retained as evidence; contextual fit remains revisable.'),node('pre',values(sense.expression)[0]));
+    const url=field(document?.expression,'url');if(url){const link=node('a','Dictionary source','citation');link.href=url;link.target='_blank';link.rel='noopener noreferrer';details.append(link);}
+    const button=node('button','Withdraw this sense');button.addEventListener('click',()=>act(()=>{project.store.retract(sense.id);notice('Withdrew this sense and dependent readings.');}));details.append(button);$('concepts').append(details);
+  }
   for(const excerpt of project.store.records('SourceExcerpt')){
     const title=field(excerpt.expression,'title','Source excerpt');if(!title.toLowerCase().includes(search))continue;
     const details=node('details',undefined,'record');details.append(node('summary',title+' · retained excerpt'),node('small',field(excerpt.expression,'license')),node('pre',values(excerpt.expression)[0]));$('concepts').append(details);
