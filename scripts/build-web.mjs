@@ -5,7 +5,9 @@ import { resolve } from 'node:path';
 
 rmSync('dist', { recursive: true, force: true });
 mkdirSync('dist/vendor', { recursive: true });
-for (const file of ['index.html', 'style.css', 'mobile.css']) copyFileSync('web/' + file, 'dist/' + file);
+for (const file of ['style.css', 'mobile.css']) copyFileSync('web/' + file, 'dist/' + file);
+const version=JSON.parse(readFileSync('package.json','utf8')).version;
+writeFileSync('dist/index.html',readFileSync('web/index.html','utf8').replace('__POCKET_VERSION__',version));
 cpSync('packs', 'dist/packs', { recursive: true });
 mkdirSync('dist/examples'); copyFileSync('examples/world.ncon', 'dist/examples/world.ncon');
 copyFileSync('node_modules/sql.js/dist/sql-wasm.js', 'dist/vendor/sql-wasm.js');

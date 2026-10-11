@@ -12,7 +12,7 @@ function tab(name) {
   for (const panel of document.querySelectorAll('.panel')) panel.hidden = panel.id !== name;
 }
 function controls(disabled) {
-  for (const button of document.querySelectorAll('form button,#demo,#backup,#exportHistory,#restore,#exist,#curriculum,.reward button,.revisit,.record button,.process-review')) button.disabled = disabled;
+  for (const button of document.querySelectorAll('form button,#demo,#backup,#exportHistory,#restore,#exist,#curriculum,.reward button,.revisit,.record button,.process-review,.confirm-form')) button.disabled = disabled;
   $('online').disabled = disabled;
   $('teacher').disabled = disabled;
 }
@@ -94,7 +94,10 @@ function history() {
         const repairs=values(field(candidate,'repairs'));
         if(repairs.length){const hypotheses=node('details');hypotheses.append(node('summary','Proposed spelling readings'));
           hypotheses.append(node('p','These alternatives helped this interpretation. Your original words are retained; no personal spelling rule was installed.'));
-          for(const repair of repairs)hypotheses.append(node('p',JSON.stringify(values(repair)[0])+' → '+JSON.stringify(values(repair)[1])));
+          for(const repair of repairs){const [raw,expected]=values(repair),row=node('div');row.append(node('p',JSON.stringify(raw)+' → '+JSON.stringify(expected)));
+            const confirm=node('button','Teach this spelling for me','confirm-form');confirm.type='button';
+            confirm.addEventListener('click',()=>act(async()=>{project.confirmSpelling(held.id,raw,expected,{profile:'keal'});notice('Learned your confirmed spelling. Context will still choose the meaning.');},{message:'Retaining your correction…'}));row.append(confirm);hypotheses.append(row);
+          }
           card.append(hypotheses);
         }
         card.append(node('div', `Rank ${Number(field(candidate, 'score')).toFixed(3)} · expectation ${Number(field(candidate, 'expectation')).toFixed(2)}`, 'score'));

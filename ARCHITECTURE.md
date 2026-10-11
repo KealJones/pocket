@@ -738,3 +738,19 @@ requests create no successful-acquisition record and remain retryable. Changed
 configuration bypasses the cache. Worked-example searches depend on the current
 utterance and do not reuse this lexical cache. Research snapshots have their own
 existing freshness policy. Browser notebooks retain these ordinary graph records.
+
+### Confirmed forms (0.12.1)
+
+`confirmSpelling` accepts only a displayed repair from an active reading belonging
+to the current profile. Explicit user confirmation retains a `SpellingLesson` and
+an ordinary concept relationship `ReadSpelling(raw, expected, profile=...)`.
+The original reading, episode and confirmation remain dependencies. Literal
+phrase repairs expose individual changed words where alignment is unambiguous.
+A form relationship participates in surface and literal matching without editing
+observations, selecting a global sense or granting execution authority. Multiple
+senses of the expected form remain available to typed contextual composition;
+conflicting confirmations remain alternatives. Relationships are one-hop, so a
+cycle cannot recursively rewrite input. Protected regions are excluded. Retraction
+withdraws dependent readings; browser backup/reopen retains the learned form.
+External evidence cannot install confirmed spelling relationships. This is an
+explicit labelled lesson, not automatic self-confirmation from a successful parse.

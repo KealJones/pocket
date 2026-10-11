@@ -62,3 +62,34 @@ test('useful fallback replies remain available after bounded learning, without c
   assert.ok(p.store.records('NeedStatus').some(r=>field(r.expression,'status')==='open'));
  }finally{p.close();}
 });
+
+test('explicit spelling confirmation teaches a scoped, retractable form without choosing its sense globally',async()=>{
+ const p=new Project(options);try{
+  p.load('Concept(ApplyAction(),IsA(Operation()),Surface("apply")) Concept(ApplyName(),IsA(Name()),Surface("apply")) Concept(ActForm(),Construction(pattern=List(Slot($op,kind=Operation()),Literal("now")),meaning=Act($op))) Concept(NameForm(),Construction(pattern=List(Literal("named"),Slot($name,kind=Name())),meaning=Named($name)))');
+  const first=await p.turn('aply now');assert.equal(values(first.result)[0].head,'Act');
+  assert.throws(()=>p.confirmSpelling(first.readingId,'aply','apply',{profile:'other'}),/profile/);
+  assert.throws(()=>p.confirmSpelling(first.readingId,'aply','apple'),/proposal/);
+  const lesson=p.confirmSpelling(first.readingId,'aply','apply');
+  p.load('Concept(SurfaceRepairPolicy(),Revision(1),Enabled(0))');
+  const action=await p.turn('aply now'),name=await p.turn('named aply');
+  assert.equal(values(action.result)[0].head,'Act');assert.equal(values(name.result)[0].head,'Named');assert.deepEqual(action.candidates[0].repairs,[]);
+  assert.equal((await p.turn('aply now',{profile:'other'})).status,'learning');
+  assert.equal((await p.turn('`aply` now')).status,'learning');
+  p.store.retract(lesson.lessonId);assert.equal(p.store.record(action.replyId).active,false);assert.equal(p.store.record(name.replyId).active,false);assert.equal(p.store.record(first.episodeId).active,true);
+  assert.equal((await p.turn('aply now')).status,'learning');
+ }finally{p.close();}
+});
+
+test('confirmed literal and multiword forms survive actual browser reopen and transfer through existing constructions',async()=>{
+ const {readFileSync}=await import('node:fs'),{default:initSQL}=await import('sql.js'),{ProjectCore}=await import('../src/project-core.mjs'),{BrowserStore}=await import('../web/store.mjs');
+ const SQL=await initSQL(),manifest=JSON.parse(readFileSync(new URL('../packs/manifest.json',import.meta.url),'utf8')),bundle={manifest,packs:Object.fromEntries(manifest.packs.map(n=>[n,readFileSync(new URL('../packs/'+n,import.meta.url),'utf8')]))};
+ let p=new ProjectCore({...options,store:new BrowserStore(SQL),bundle});try{
+  const first=await p.turn('waht time is it');p.confirmSpelling(first.readingId,'waht','what');
+  const follow=await p.turn('militry tiem');p.confirmSpelling(follow.readingId,'militry tiem','military time');
+  p.load('Concept(SurfaceRepairPolicy(),Revision(1),Enabled(0))');const bytes=p.store.snapshot();p.close();p=new ProjectCore({...options,store:new BrowserStore(SQL,bytes),bundle});
+  assert.equal(field((await p.turn('militry tiem?')).reply,'answer'),'16:39');
+  assert.equal(field((await p.turn('waht time is it')).reply,'answer'),'16:39');
+  await p.turn('lunch is at 12:30');assert.equal(field((await p.turn('waht time is lunch at?')).reply,'answer'),'12:30');
+  for(const text of ['Concept(X(),ReadSpelling("waht","what"))','SpellingLesson("waht","what")'])assert.throws(()=>p.load(text,{trusted:false}),/Evidence cannot install/);
+ }finally{p.close();}
+});

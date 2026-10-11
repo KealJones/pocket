@@ -123,6 +123,7 @@ export class Learner {
       definition.parts.filter(p=>p.head==='Construction').forEach(visit);
     }
     const covered=new Set(analysis.edges.filter(e=>!e.repair).flatMap(e=>Array.from({length:e.end-e.start},(_,i)=>i+e.start)));
+    for(const fragment of analysis.fragments??[])for(const piece of fragment.consumed??[])if(piece.formReading)for(let i=piece.start;i<piece.end;i++)covered.add(i);
     return analysis.units.flatMap((u,i)=>u.kind==='word'&&!u.protected&&!covered.has(i)&&!literals.has(u.raw.normalize('NFC').toLowerCase())?[u.raw]:[]);
   }
   async decode(input,{profile,context,contextSupports=[],deadline},steps){

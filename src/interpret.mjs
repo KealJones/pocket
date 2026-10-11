@@ -1,10 +1,11 @@
 import { call, term, variable, isTerm, isVariable, values, field, format, substitute } from './ncon.mjs';
 import { digest } from './digest.mjs';
 import { repairSearch } from './repair.mjs';
+import {formReadings,formKey} from './form-readings.mjs';
 
 /** Indexed lexical lattice + bounded construction matching. It makes proposals, never edits input. */
 export function lattice(store, input, profile = '', { maximumSpan = 12, context=term('Context'),repair=null } = {}) {
-  const units = input.tokens.filter(t => t.kind !== 'space'), edges = [];
+  const units = input.tokens.filter(t => t.kind !== 'space'), edges = [], forms=formReadings(store,profile);
   const decoded=store.records('DecodedValue').filter(r=>field(r.expression,'profile','')===profile&&values(field(r.expression,'context',term('Context'))).every(n=>values(context).some(a=>format(n)===format(a))));
   for (let start = 0; start < units.length; start++) {
     for (let end = start + 1; end <= Math.min(units.length, start + maximumSpan); end++) {
@@ -14,6 +15,10 @@ export function lattice(store, input, profile = '', { maximumSpan = 12, context=
         for (const denotation of denotations.length ? denotations : [null]) edges.push({ start, end, raw,
           meaning: denotation ? values(denotation.expression)[0] : term(surface.target), score: surface.weight,
           supports: [surface.record, ...(denotation ? [denotation.support] : [])], protected: units.slice(start, end).some(u => u.protected) });
+      }
+      if(!units.slice(start,end).some(u=>u.protected||u.kind!=='word'))for(const form of forms.get(formKey(raw))??[])for(const surface of store.surfaces(form.expected,profile)){
+        const denotations=store.parts(surface.target,'Denotes');
+        for(const denotation of denotations.length?denotations:[null])edges.push({start,end,raw,meaning:denotation?values(denotation.expression)[0]:term(surface.target),score:surface.weight,supports:[form.support,surface.record,...(denotation?[denotation.support]:[])],protected:false,formReading:form});
       }
     }
     if (units[start].kind === 'number') edges.push({ start, end: start + 1, raw: units[start].raw, meaning: Number(units[start].raw), score: 1, supports: [], protected: false });
@@ -39,7 +44,7 @@ export function lattice(store, input, profile = '', { maximumSpan = 12, context=
       (Boolean(held.repair) === Boolean(edge.repair) && edge.score > held.score);
     if(prefer)unique.set(key,edge);
   }
-  return { units, edges: [...unique.values()] };
+  return { units, edges: [...unique.values()], forms };
 }
 export async function propose(store, input, { profile = '', context = term('Context'), maximumStates = 1024, maximumCandidates = 64, maximumSpan = 12, score,repairPolicy=null } = {}) {
   const repair=repairPolicy?repairSearch(store,profile,repairPolicy):null;
@@ -85,10 +90,23 @@ export async function propose(store, input, { profile = '', context = term('Cont
           const text = values(p)[0]; if (typeof text !== 'string' || at >= lex.units.length) return;
           for (let end = at + 1; end <= Math.min(lex.units.length, at + maximumSpan); end++) {
             const raw = input.source.slice(lex.units[at].start, lex.units[end - 1].end);
+            const span=lex.units.slice(at,end),expectedWords=text.trim().split(/\s+/u),wordAligned=span.every(u=>!u.protected&&u.kind==='word')&&expectedWords.length===span.length;
+            const confirmedPieces=wordAligned?span.map((u,i)=>normalize(u.raw)===normalize(expectedWords[i])?{start:at+i,end:at+i+1,raw:u.raw,literal:true}:(lex.forms.get(formKey(u.raw))??[]).find(f=>formKey(f.expected)===formKey(expectedWords[i]))):[];
             if (normalize(raw) === normalize(text)) await visit(parts, part + 1, end, start, bindings, supports, evidence + 1, holes, [...consumed, { start: at, end, raw, literal: true }]);
-            else if(repair&&!lex.units.slice(at,end).some(u=>u.protected||u.kind!=='word')&&text.trim().split(/\s+/u).length===end-at){
-              const distance=repair.distance(raw,text),hypothesis=distance===null?null:repair.hypothesis(raw,text,distance);
-              if(hypothesis)await visit(parts,part+1,end,start,bindings,[...supports,...repair.supports],evidence+1-hypothesis.penalty,holes,[...consumed,{start:at,end,raw,literal:true,repair:hypothesis}]);
+            else if(!lex.units.slice(at,end).some(u=>u.protected||u.kind!=='word')&&(lex.forms.get(formKey(raw))??[]).some(f=>formKey(f.expected)===formKey(text))){
+              for(const form of lex.forms.get(formKey(raw)).filter(f=>formKey(f.expected)===formKey(text)))await visit(parts,part+1,end,start,bindings,[...supports,form.support],evidence+1,holes,[...consumed,{start:at,end,raw,literal:true,formReading:form}]);
+            }else if(wordAligned&&confirmedPieces.every(Boolean)){
+              const pieces=confirmedPieces.map((p,i)=>p.literal?p:{start:at+i,end:at+i+1,raw:span[i].raw,literal:true,formReading:p});
+              await visit(parts,part+1,end,start,bindings,[...supports,...pieces.flatMap(p=>p.formReading?[p.formReading.support]:[])],evidence+1,holes,[...consumed,...pieces]);
+            }else if(repair&&wordAligned){
+              const distance=repair.distance(raw,text);
+              if(distance===null)continue;
+              const pieces=span.map((u,i)=>{
+                if(normalize(u.raw)===normalize(expectedWords[i]))return {start:at+i,end:at+i+1,raw:u.raw,literal:true};
+                const d=repair.distance(u.raw,expectedWords[i]),hypothesis=d===null?null:repair.hypothesis(u.raw,expectedWords[i],d);
+                return hypothesis?{start:at+i,end:at+i+1,raw:u.raw,literal:true,repair:hypothesis}:null;
+              });
+              if(pieces.every(Boolean))await visit(parts,part+1,end,start,bindings,[...supports,...repair.supports],evidence+1-distance*repair.policy.penalty,holes,[...consumed,...pieces]);
             }
           }
           return;

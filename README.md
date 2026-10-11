@@ -324,3 +324,9 @@ no personal spelling alias is installed automatically. Ambiguous repairs and
 unmatched words remain unresolved. Dictionary/article fallbacks no longer stop
 independent acquisition just because their syntax parses. Successful empty lexical
 lookups are reused briefly, while failed requests remain retryable.
+
+To retain a proposed spelling, open its reading inspector and choose **Teach this
+spelling for me**. The confirmation becomes a profile-scoped `.ncon` relationship,
+not a global meaning replacement. For example, confirming `waht → what` transfers
+through existing question forms; surrounding concepts still determine the sense.
+Confirmed forms survive notebook backup/reopen and remain retractable in Knowledge.

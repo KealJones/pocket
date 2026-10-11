@@ -74,7 +74,12 @@ test('workbench controls teach real concepts and retain exact pieces, rewards, a
     $('message').value='letter notation';submit('talkForm');await settled();
     assert.equal([...$('history').querySelectorAll('.assistant-words')].at(-1).textContent,'21');
     assert.match([...$('history').querySelectorAll('.turn')].at(-1).textContent,/For your earlier question: what is ab\*3\?/);
-    $('message').value='what time is it';submit('talkForm');await settled();
+    $('message').value='waht time is it';submit('talkForm');await settled();
+    assert.match([...$('history').querySelectorAll('.inspector')].at(-1).textContent,/Proposed spelling readings/);
+    [...$('history').querySelectorAll('.turn')].at(-1).querySelector('.confirm-form').click();await settled();
+    assert.match($('notice').textContent,/Learned your confirmed spelling/);
+    $('message').value='waht time is it';submit('talkForm');await settled();
+    assert.doesNotMatch([...$('history').querySelectorAll('.inspector')].at(-1).textContent,/Proposed spelling readings/);
     for(const prompt of ['in military time','in military time?']) {
       $('message').value=prompt;submit('talkForm');await settled();
       assert.match([...$('history').querySelectorAll('.assistant-words')].at(-1).textContent,/^\d{2}:\d{2}$/);
