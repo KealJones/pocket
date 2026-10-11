@@ -506,10 +506,35 @@ When a gap remains, `LearnMissing` in `model-learning.ncon` authors the proposal
 validation/retention sequence. The host supplies HTTP transport, detached graph
 validation, bounded parsing and pure execution checks. The default browser uses
 the public, rate-limited Cloudflare proxy; the provider key never reaches the
-client. The question, up to four recent observations, selected notebook definitions,
-source excerpts and counterexamples are sent to Gemini. Node usage is opt-in with
+client. The question, up to four recent observations with their actual committed
+readings and replies, selected notebook definitions, source excerpts and
+counterexamples are sent to Gemini. Node usage is opt-in with
 `new Project({teacher:{}})`. No dependency on Gemini is introduced into evaluation
 or persisted notebook loading.
+
+Version 0.11.2 retrieves related definitions from graph links seeded by current
+lexical/candidate meanings, prior committed meanings and memory kinds. Direct
+definitions precede incoming links; incoming retrieval is limited to low-degree
+symbols to avoid expanding through general wrappers. Syntax operators are excluded
+from graph navigation. The host retrieval budgets are 32 records, 22,000 definition
+characters, six hops and reverse degree four. Related declarations retain whole
+parts rather than arbitrary string suffixes, and supplied profile restrictions
+are respected. This is a bounded retrieval heuristic for supervision, not an
+independent natural-language interpreter. The packet reports truncation and shrinks
+related definitions by whole records if the proxy byte budget requires it.
+The supervision memory packet orders objects by actual recent attention and carries
+the newest binding for each relation, rather than choosing versions by hash order.
+It contains at most eight objects and six current relations per object. Partial
+graph declarations are marked, so the packet does not imply it lists every rule.
+
+Alternate spellings can be learned as profile-scoped surfaces denoting existing
+concepts. Typed constructions then bind those meanings without replacing input.
+New follow-up constructions can reuse the same object workflows; after validation
+the original episode is retried, and persisted learning runs with the teacher off.
+An authored bound-value requirement reduces assessment of a generic correction
+that asks about an irrelevant earlier subject without answering the request.
+Known complete generic readings can still suppress independent sense acquisition;
+typed contextual eligibility and a broader repair lattice remain unfinished.
 
 A response is a `LearningHypothesis`, not executable authority. It can propose
 new namespaced concepts, surfaces, typed constructions, pure `.ncon` realizations,

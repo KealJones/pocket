@@ -5,7 +5,7 @@ minimum version was not available for a separate compatibility run.
 
 ## Automated checks
 
-`npm test`: 171 tests pass (current release; later sections detail additions). Coverage includes:
+`npm test`: 176 tests pass (current release; later sections detail additions). Coverage includes:
 
 - direct `.ncon` parsing/formatting, variable binding/shadowing, rule context,
   conflicts, cycles, residuals, and bounded evaluation;
@@ -320,3 +320,24 @@ unavailable; shared browser SQLite and DOM interaction coverage are retained.
   already worked in a fresh 0.11 notebook; the exact cause of the user's bare-phrase
   report has not been established. Both forms are now explicitly covered.
 - Visual phone/browser QA remains unavailable; DOM and browser SQLite tests passed.
+
+## 0.11.2 contextual teaching (2026-10-10)
+
+- Five additional tests exercise actual prior readings/replies and reachable format
+  definitions in teaching packets, an alias retained across an offline notebook
+  reopen, retraction, correcting an irrelevant but complete generic interpretation,
+  reusable list wording with the same learning mechanism, bounded graph retrieval,
+  profile restrictions, recent attention and current relationship versions.
+- Live Gemini, fresh notebook, fixed clock at 04:39 PM: `militry tiem` installed
+  `AcquiredTwentyFourHourTimeVariant` and answered **16:39** in one teacher call,
+  without validation failures. Disabling both the teacher and online acquisition
+  afterward allowed `militry tiem?` to answer **16:39**, with no further model call.
+  Independent source fetches in this test deliberately returned HTTP 503, isolating
+  the optional teaching path. The other new teaching tests use provider fixtures.
+- Independent agent review reproduced unsupported shorthand and misspellings, and
+  the incorrect `no like army clock` generic correction. It identified missing
+  contextual eligibility and lexical repair proposals. This release improves
+  retained contextual teaching; it does not implement that broader repair lattice
+  or claim LLM-level coverage with the teacher absent on a fresh notebook.
+- Full suite: **176 tests passed**; declaration check: **192** concepts; demo passed.
+  No visual phone/browser QA was available in this environment.

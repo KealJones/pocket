@@ -5,3 +5,6 @@ Concept(LearnMissing(),Realization(LearnMissing($need),
  body=Let($proposal,Native("learning.propose",$need),Native("learning.validate-and-retain",$need,$proposal))))
 Concept(TopicQuestion(),LearningFallback())
 Concept(SearchQuestion(),LearningFallback())
+// A repair that did not produce a bound answer still has an interpretation gap.
+// Completeness of its text capture is not evidence that the repair was relevant.
+Concept(ReferentCorrection(),AnswerRequirement(BoundValue()))

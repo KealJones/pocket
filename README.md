@@ -49,6 +49,10 @@ Conversation follow-ups use shared episodic memory and attention. Try
 `what time is it` → `in military time`, with or without a question mark.
 `military time` and `in 24-hour time` use the same format concept; the follow-up
 formats the clock observation in focus rather than searching for an article.
+When Gemini is enabled, unfamiliar wording can be taught using prior readings,
+actual replies and related concept definitions. Accepted aliases and constructions
+remain in your notebook and can run with Gemini and internet learning switched off.
+This does not guarantee understanding every unseen typo or idiom.
 You can also try
 `my best friend Greg turned 30 yesterday!` → `who is my best friend` →
 `when is his birthday?`. Being 30 yesterday alone doesn't establish a birthday.
