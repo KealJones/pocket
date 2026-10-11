@@ -655,6 +655,15 @@ using existing workflows; `LearnableType` marks permitted extension kinds. The
 teacher cannot install memory mutations as executable code or source facts.
 Source reading never executes the instructions it interprets.
 
+Version 0.11.1 adds request-ending composition in `.ncon`: a question mark or
+exclamation mark can wrap an already interpreted `Request` without replacing its
+meaning. Format wordings bind a typed `TimeFormat` role, resolve its supported code,
+and reuse the existing attended-clock workflow. A taught phrasing can transfer
+across formats; a definition question about military time remains a topic question.
+The original input, including punctuation, stays intact. New definitions are appended
+separately so upgrading a notebook does not withdraw the earlier session definitions
+that support its saved clock, list and person memories. No host dispatch was added.
+
 A MediaWiki adapter reads configured ingredient and procedure sections, retains
 raw text, revision, citation and license, and creates source-supported `RecipeFact`
 records. It also submits the excerpt to the ordinary inert evidence reader.

@@ -1,6 +1,6 @@
 {
   "name": "napkin-next",
-  "version": "0.11.0",
+  "version": "0.11.1",
   "description": "A learning-first concept runtime with lossless input and revisable interpretations",
   "type": "module",
   "private": true,

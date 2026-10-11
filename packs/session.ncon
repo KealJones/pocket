@@ -72,3 +72,23 @@ Concept(YesterdayWord(),Surface("yesterday"),
  Frame(pattern=List(Choice(Literal("what about that shopping list from yesterday"),Literal("show the shopping list from yesterday")),Optional(Literal("?"))),meaning=SessionRequest(RecallCollectionDate(ShoppingList(),Native("calendar.shift-days",Native("calendar.reference-date"),-1))),weight=12))
 Concept(RememberWord(),Surface("remember"),
  Frame(pattern=List(Literal("remember this list"),Optional(Literal("!"))),meaning=SessionRequest(PinFocused(TaskList())),weight=12))
+
+// A request can carry a terminal question/emphasis mark without becoming a
+// generic search. The original punctuation remains in its observation.
+Concept(SessionRequest(),IsA(Request()))
+Concept(RequestBoundary(),Construction(
+ pattern=List(Slot($request,kind=Request()),Choice(Literal("?"),Literal("!"))),meaning=$request))
+
+// Format words denote format concepts. The same bounded construction can use a
+// newly taught format, and the existing workflow resolves its focused object.
+Concept(TimeFormat(),LearnableType())
+Concept(TwentyFourHourTime(),IsA(TimeFormat()),Surface("military time"),Surface("24-hour time"),Surface("24 hour time"))
+Concept(TwelveHourTime(),IsA(TimeFormat()),Surface("12-hour time"),Surface("12 hour time"))
+Concept(TimeFormatRequest(),Construction(
+ pattern=List(Optional(Literal("in")),Slot($format,kind=TimeFormat())),
+ meaning=SessionRequest(SetClockFormat($format)),weight=12))
+Concept(TimeFormatCode(),
+ Realization(TimeFormatCode(TwentyFourHourTime()),body="24"),
+ Realization(TimeFormatCode(TwelveHourTime()),body="12"))
+Concept(SessionApply(),Realization(SessionApply(SetClockFormat($format)),
+ body=Let($code,TimeFormatCode($format),If(Native("value.is-text",$code),SessionApply(ChangeClockFormat($code)),SessionReply(text="I retained the format concept, but still need its supported realization.",pending=true)))))

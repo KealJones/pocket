@@ -46,7 +46,10 @@ observed outcomes, labelled meanings, and code implementations. **Knowledge** le
 you withdraw assertions. **Learning** investigates and revisits unresolved work.
 
 Conversation follow-ups use shared episodic memory and attention. Try
-`get me the time` → `in military time`, or
+`what time is it` → `in military time`, with or without a question mark.
+`military time` and `in 24-hour time` use the same format concept; the follow-up
+formats the clock observation in focus rather than searching for an article.
+You can also try
 `my best friend Greg turned 30 yesterday!` → `who is my best friend` →
 `when is his birthday?`. Being 30 yesterday alone doesn't establish a birthday.
 `lunch is at 12:30` can fill a later `what time is lunch at?` request.

@@ -5,7 +5,7 @@ minimum version was not available for a separate compatibility run.
 
 ## Automated checks
 
-`npm test`: 166 tests pass (current release; later sections detail additions). Coverage includes:
+`npm test`: 171 tests pass (current release; later sections detail additions). Coverage includes:
 
 - direct `.ncon` parsing/formatting, variable binding/shadowing, rule context,
   conflicts, cycles, residuals, and bounded evaluation;
@@ -301,3 +301,22 @@ unavailable; shared browser SQLite and DOM interaction coverage are retained.
 - Recipe acquisition currently uses one configured source adapter and literal
   ingredient matching. Arbitrary substitutions, broad associative reference
   resolution and unfamiliar language workflows still require further learning.
+
+## 0.11.1 format follow-ups (2026-10-10)
+
+- Full suite: **171 tests passed**; declaration check: **191** concepts; demo passed.
+  Actual workbench controls exercise `what time is it` followed by both
+  `in military time` and `in military time?`, with no article citation.
+- Five added tests cover punctuation-free and punctuated formats without network
+  or teacher calls, generic request endings for an independently supplied workflow,
+  quoted text protection, retraction, learned wording transfer across formats,
+  preserving the original observed time, missing-focus clarification and definition
+  questions retaining their topic meaning.
+- A browser SQLite upgrade test starts with the previous session definitions,
+  retains a clock observation and a reproduced Wikipedia answer, reloads the new
+  pack, then resolves the original episode and both follow-up forms locally. Its
+  Wikipedia responses are fixtures. Saved clock memory remains active after upgrade.
+- The punctuation variant reproduced the research fallback. The bare phrase
+  already worked in a fresh 0.11 notebook; the exact cause of the user's bare-phrase
+  report has not been established. Both forms are now explicitly covered.
+- Visual phone/browser QA remains unavailable; DOM and browser SQLite tests passed.

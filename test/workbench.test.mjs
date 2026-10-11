@@ -74,7 +74,13 @@ test('workbench controls teach real concepts and retain exact pieces, rewards, a
     $('message').value='letter notation';submit('talkForm');await settled();
     assert.equal([...$('history').querySelectorAll('.assistant-words')].at(-1).textContent,'21');
     assert.match([...$('history').querySelectorAll('.turn')].at(-1).textContent,/For your earlier question: what is ab\*3\?/);
-    for(const prompt of ['get me the time','in military time','my best friend Greg turned 30 yesterday!','who is my best friend','can you make me a shopping list with eggs, and chicken on it','oh and sugar']) { $('message').value=prompt;submit('talkForm');await settled(); }
+    $('message').value='what time is it';submit('talkForm');await settled();
+    for(const prompt of ['in military time','in military time?']) {
+      $('message').value=prompt;submit('talkForm');await settled();
+      assert.match([...$('history').querySelectorAll('.assistant-words')].at(-1).textContent,/^\d{2}:\d{2}$/);
+      assert.equal([...$('history').querySelectorAll('.turn')].at(-1).querySelectorAll('.citation').length,0);
+    }
+    for(const prompt of ['my best friend Greg turned 30 yesterday!','who is my best friend','can you make me a shopping list with eggs, and chicken on it','oh and sugar']) { $('message').value=prompt;submit('talkForm');await settled(); }
     assert.equal([...$('history').querySelectorAll('.assistant-words')].at(-1).textContent,'- eggs\n- chicken\n- sugar');
     assert.match($('concepts').textContent,/ShoppingList\(\) · conversation memory/);
     assert.doesNotMatch($('concepts').textContent,/ShoppingList\(\) · explicitly remembered/);
