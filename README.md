@@ -348,3 +348,9 @@ to another term investigated during the same request. Those supported links reus
 the existing concept/frame/checked-realization pipeline and survive offline.
 The Knowledge tab shows retained source senses and lets you withdraw them.
 This improves the learner; it does not require preloading a large vocabulary.
+
+You can now teach a personal word or phrase in conversation, for example
+`army clock means military time`. Pocket retains the claim through the same
+sense-learning path, investigates an unfamiliar reference, and composes the new
+form with ordinary context later. Conflicting definitions remain alternatives;
+learning a definition does not execute it. Gemini is optional throughout.

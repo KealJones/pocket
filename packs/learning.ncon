@@ -5,3 +5,16 @@ Concept(SubtractCapability(),IsA(InductionPrimitive()),Capability("number.subtra
 Concept(MultiplyCapability(),IsA(InductionPrimitive()),Capability("number.multiply"),Arity(2),Commutative(true))
 Concept(DivideCapability(),IsA(InductionPrimitive()),Capability("number.divide"),Arity(2))
 Concept(InductionPolicy(),MinimumExamples(2),MaximumExpressions(1024),MaximumReusableBlocks(16),MaximumProcedureInspections(128))
+
+// Metalinguistic starter constructions. Their result is a scoped learning claim;
+// words still choose meanings per occurrence and never become a global rewrite.
+Concept(DefinitionWord(),Surface("means"),
+ Frame(pattern=List(Slot($form,capture="text",maximumSpan=4),Lexeme(DefinitionWord()),Slot($definition,capture="text",maximumSpan=8),Optional(Literal("."))),meaning=DefineForm($form,$definition),weight=14))
+Concept(PersonalDefinition(),Construction(pattern=List(Literal("when I say"),Slot($form,capture="text",maximumSpan=4),Literal("I mean"),Slot($definition,capture="text",maximumSpan=8),Optional(Literal("."))),meaning=DefineForm($form,$definition),weight=14))
+Concept(DefineForm(),IsA(Request()),NoTeacherReview())
+Concept(FormLearning(),NoTeacherReview())
+Concept(RespondTo(),
+ Realization(RespondTo(DefineForm($form,$definition)),body=Let($receipt,Native("learning.observe-definition",$form,$definition),RespondTo($receipt))),
+ Realization(RespondTo(FormLearning($form,$definition,known=true,withdrawn=false)),body=Native("reply.make",Native("text.concat","I retained your definition of ",$form," as ",$definition,". I will use it as a possible reading in context."),null)),
+ Realization(RespondTo(FormLearning($form,$definition,known=false,withdrawn=false)),body=Native("reply.pending",Native("text.concat","I retained your definition of ",$form," as ",$definition,". I still need to understand that reference; the learning work stays open."))),
+ Realization(RespondTo(FormLearning($form,$definition,known=false,withdrawn=true)),body=Replied(text="That definition was withdrawn. Tell me a new definition to teach it again.",pending=true)))

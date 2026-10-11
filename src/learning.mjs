@@ -2,11 +2,31 @@ import { capture } from './ears.mjs';
 import { term,call,isTerm,values,field,format,parse,match,substitute } from './ncon.mjs';
 import { learnRealization } from './code-learning.mjs';
 import {digest} from './digest.mjs';
+import {retainLexicalSense,lexicalRoutes} from './dictionary.mjs';
 
 // One request worklist: evidence acquisition, grounded frames, implementation
 // lessons, then reinterpretation. Domain meanings are authored/imported concepts.
 export class Learner {
   constructor(project){this.project=project;this.store=project.store;}
+  async observeDefinition(form,definition){
+    const p=this.project,profile=p.responseProfile??p.profile,episode=p.responseEpisode,reading=p.responseReading;
+    if(!episode||!reading)throw new Error('A conversational definition needs its committed observation and reading');
+    if(![form,definition].every(text=>typeof text==='string'&&text.trim()&&text.length<=p.policy('DictionaryLearningPolicy','MaximumReferenceCharacters')))throw new Error('Definition reference exceeds the retained learning budget');
+    const source='user:definition:'+episode,previous=p.store.db.prepare('SELECT id,active FROM records WHERE head=? AND source=?').all('LexicalDefinition',source);
+    let observation=previous.find(r=>r.active)?.id;
+    if(!observation&&previous.length)return call('FormLearning',[form,definition],{known:false,withdrawn:true});
+    const identity=term('C_'+digest(source+'|'+form+'|'+definition));
+    if(!observation){
+      observation=p.store.put(call('LexicalDefinition',[form,definition],{profile,episode,sequence:p.sequence()}),{source,supports:[episode,reading]});
+      retainLexicalSense(p.store,{identity,observation,surface:form,gloss:definition,paraphrase:definition,profile,source:'derived:user-defined-sense',label:form+' · your definition'});
+    }
+    // The same request learner investigates the referenced term. A definition
+    // records a language claim; this path never executes its interpreted meaning.
+    await this.request(capture(form),{profile,context:term('Context'),acquire:p.online,episode});
+    const routes=p.store.definitions().has(identity.head)?lexicalRoutes(p.store,identity.head,profile,p.lexicalOptions()):{routes:[]};
+    p.responseEvidence?.push(observation,...routes.routes.flatMap(r=>r.supports));
+    return call('FormLearning',[form,definition],{known:Boolean(routes.routes.length&&!routes.exhausted),withdrawn:false});
+  }
   languageFingerprint(){return digest(this.store.records('Concept').map(r=>r.id).sort().join('\n'));}
   // Sources and users share capture, lexical proposals, frames and selection.
   // Reading evidence never runs its meaning or treats it as a user command.
@@ -201,7 +221,7 @@ export class Learner {
     const gaps=[];
     if(!this.best(analysis,{allowFallback:false}))gaps.push(term(analysis.candidates.length?'RefineInterpretation':'LearnConstruction'));
     for(const candidate of analysis.contextRejected??[])gaps.push(...candidate.contextProof.needs);
-    for(const word of this.unknowns(input,analysis))gaps.push(term('LearnSense',word));
+    for(const word of new Set([...this.unknowns(input,analysis),...(analysis.lexicalNeeds??[])]))gaps.push(term('LearnSense',word));
     for(const candidate of analysis.candidates)for(const hole of candidate.holes)gaps.push(term('FillRole',hole));
     const need=gaps.length?this.store.put(call('Need',gaps,{episode,profile,context,phase:'independent',sequence:p.sequence(),hypotheses:term('List',...analysis.candidates.map(c=>p.candidateExpression(c)))}),{source:'derived:learning-need',supports:[episode,...analysis.candidates.flatMap(c=>c.supports)]}):null;
     if(need)await p.onProgress?.({stage:'learning',message:'Pocket is checking source meanings, examples and retained concepts…'});
@@ -211,10 +231,10 @@ export class Learner {
       if(analysis.graphVersion!==this.store.version) analysis=await p.analyze(input,{profile,context,episode});
       const chosen=this.best(analysis);
       if(chosen&&!this.store.parts(chosen.meaning?.head,'LearningFallback').length){await this.realize(chosen.meaning,steps);break;}
-      if(!acquire||!p.online||attempted.size>=jobs) break;
       const frontier=[...new Set([...this.unknowns(input,analysis),...(analysis.lexicalNeeds??[])])];
       const current=this.store.agenda().filter(j=>j.kind==='composition'&&j.query===input.source||j.kind==='lexical'&&frontier.includes(j.query));
       for(const query of frontier)if(!current.some(j=>j.kind==='lexical'&&j.query===query)) {const id=this.store.enqueue(query,'lexical');current.push(this.store.job(id));}
+      if(!acquire||!p.online||attempted.size>=jobs) break;
       // First accept any supplied outcomes; then acquire meanings, rather than
       // starving the current request behind an old notebook's unfinished work.
       current.sort((a,b)=>(a.kind==='composition'?0:analysis.lexicalNeeds?.includes(a.query)?1:2)-(b.kind==='composition'?0:analysis.lexicalNeeds?.includes(b.query)?1:2));

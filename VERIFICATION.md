@@ -89,3 +89,18 @@ with `15`. It then answered `what is 7 times 4?` with `28` offline, with zero ne
 network calls. This proves a constrained bridge plus frame/realization reuse;
 it does not prove arbitrary prose-to-program synthesis. A Gemini architecture
 brainstorm timed out with HTTP 504 and supplied no implementation ideas.
+
+## 0.13.1 conversational learning
+
+Tests teach a personal form whose definition references an unfamiliar dictionary
+term, acquire that term within the same request, and use the resulting frame with
+a new argument offline. Definitions stay within their speaker's profile, and
+withdrawal invalidates derived answers. Replay does not reinstate a withdrawn
+assertion; a new explicit statement can reteach it. Missing references remain
+queued even offline, and later evidence can resolve the retained definition.
+
+An actual browser SQLite test observes the clock, teaches `army clock means
+military time`, verifies teaching did not change the clock, uses `in army clock`,
+and reopens the notebook to reuse the phrase without network or Gemini. Tests
+also retain conflicting definitions and keep protected code inert. A direct
+runtime probe produced `04:39 PM` then `16:39` through that sequence.

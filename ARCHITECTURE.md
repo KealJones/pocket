@@ -815,3 +815,22 @@ source page withdraws the old snapshot and its derived answers. This path does n
 claim that every definition is understandable or that dictionary metadata alone
 constitutes a new executable role frame. Larger definitions and usage examples
 are retained for further learning rather than automatically executed.
+
+### Conversational definitions (0.13.1)
+
+Authored metalinguistic constructions read `form means definition` and
+`when I say form I mean definition` as a learning request. The host does not
+recognize these sentences. `learning.observe-definition` mechanically stores a
+`LexicalDefinition` supported by the committed user observation and reading,
+then uses the same sense constructor and bounded paraphrase traversal as the
+dictionary reader. The new surface is scoped to the speaker's profile.
+
+The ordinary independent request learner investigates missing reference terms
+within that request and retains their work even when offline. Defining a form
+does not execute its meaning. New occurrences still compose through ordinary
+frames and checked realizations. Conflicting definitions add alternatives rather
+than globally overwriting a word; withdrawing the assertion invalidates dependent
+readings. Replaying an explicitly withdrawn definition cannot silently reinstate
+it. A new explicit statement can teach it again. The initial constructions accept
+bounded unquoted word/phrase references; arbitrary prose definitions and protected
+code still need adequate readers and learning evidence.

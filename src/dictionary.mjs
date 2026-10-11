@@ -64,6 +64,13 @@ export function dictionaryPassages(raw,{section,language,mappings=[],maximumSens
   return passages;
 }
 
+export function retainLexicalSense(store,{identity,observation,surface,gloss,equivalents=[],paraphrase=null,profile='',source='derived:dictionary-sense',label=surface}){
+  const parts=[term('IsA',term('LexicalSense')),term('UnresolvedSense'),term('Label',label),call('Surface',[surface],{profile}),term('Gloss',gloss),term('DictionaryObservation',observation)];
+  for(const equivalent of new Set(equivalents))parts.push(term('LexicalEquivalent',equivalent));
+  if(paraphrase)parts.push(term('DefinitionParaphrase',paraphrase));
+  return store.put(term('Concept',identity,...parts),{source,supports:[observation]});
+}
+
 export function readDictionary(project,document){
   const store=project.store,record=store.record(document),expression=record?.expression;
   if(!record?.active||expression.head!=='SourceDocument'||field(expression,'reader')!=='wiktionary')return [];
@@ -80,17 +87,15 @@ export function readDictionary(project,document){
   for(const passage of passages){
     const identity=term('C_'+digest(document+':sense:'+passage.start));
     const observation=store.put(call('DictionarySense',[passage.raw],{document,start:passage.start,end:passage.end,gloss:passage.gloss,complete:passage.complete,section:term('List',...passage.path),labels:term('List',...passage.labels),language:value('Language'),identity}),{source:'derived:dictionary-observation',supports});
-    const parts=[term('IsA',term('LexicalSense')),term('UnresolvedSense'),term('Label',field(expression,'title')+' · '+passage.path.at(-1)+' · '+passage.gloss),term('Surface',field(expression,'title')),term('Gloss',passage.gloss),term('DictionaryObservation',observation)];
-    for(const equivalent of new Set(passage.equivalents))parts.push(term('LexicalEquivalent',equivalent));
+    let paraphrase=null;
     if(passage.complete&&!passage.equivalents.length){
       let gloss=passage.gloss;
       for(const prefix of config.filter(p=>p.expression.head==='DefinitionPrefix'))if(gloss.startsWith(values(prefix.expression)[0])){gloss=gloss.slice(values(prefix.expression)[0].length);break;}
       gloss=gloss.replace(/[.]$/u,'').trim();
-      // Only a complete short definitional paraphrase is eligible. Negation,
-      // modifiers and unknown templates stay in it; never mine isolated keywords.
-      if(gloss&&gloss.length<=project.policy('DictionaryLearningPolicy','MaximumReferenceCharacters')&&gloss.split(/\s+/u).length<=project.policy('DictionaryLearningPolicy','MaximumReferenceWords')&&!/[;(),{}<>]/u.test(gloss))parts.push(term('DefinitionParaphrase',gloss));
+      // Whole short paraphrases only. Unknown modifiers never disappear.
+      if(gloss&&gloss.length<=project.policy('DictionaryLearningPolicy','MaximumReferenceCharacters')&&gloss.split(/\s+/u).length<=project.policy('DictionaryLearningPolicy','MaximumReferenceWords')&&!/[;(),{}<>]/u.test(gloss))paraphrase=gloss;
     }
-    created.push(store.put(term('Concept',identity,...parts),{source:'derived:dictionary-sense',supports:[observation]}));
+    created.push(retainLexicalSense(store,{identity,observation,surface:field(expression,'title'),gloss:passage.gloss,equivalents:passage.equivalents,paraphrase,label:field(expression,'title')+' · '+passage.path.at(-1)+' · '+passage.gloss}));
     for(const example of passage.examples)store.put(call('DictionaryExample',[example.raw],{document,sense:observation,start:example.start,end:example.end}),{source:'derived:dictionary-example',supports:[observation]});
   }
   return created;

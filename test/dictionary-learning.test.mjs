@@ -100,3 +100,49 @@ test('dictionary policy and generated equivalence observations cannot be install
  for(const name of ['TemplateMapping','DefinitionParaphrase','LexicalEquivalent','DictionarySense','MaximumRouteInspections','DocumentReader'])assert.throws(()=>p.load(`Concept(Evil(),${name}("greet"))`,{trusted:false}),/Evidence cannot install/);
  }finally{p.close();}
 });
+
+test('conversational definitions use the same learner, fetch missing references in that request, and transfer',async()=>{
+ const f=fixture(),p=new Project({fetcher:f.fetcher,profile:'keal'});try{
+ p.load(lesson);const definition=await p.turn('florp means salute');assert.equal(definition.status,'resolved');assert.match(field(definition.reply,'text'),/retained your definition/);
+ assert.ok(f.calls.some(u=>u.searchParams.get('titles')==='salute'));assert.equal(p.store.records('LexicalDefinition').length,1);
+ const user=p.store.records('LexicalDefinition')[0];assert.equal(field(user.expression,'episode'),definition.episodeId);
+ const calls=f.calls.length;p.online=false;const turn=await p.turn('florp Emmy');assert.equal(field(turn.reply,'text'),'Hello, Emmy()');assert.equal(f.calls.length,calls);
+ assert.notEqual((await p.turn('florp Greg',{profile:'someoneelse',learn:false})).status,'resolved');
+ p.store.retract(user.id);assert.equal(p.store.record(turn.replyId).active,false);assert.equal(p.store.record(definition.episodeId).active,true);
+ assert.equal(field((await p.resume(definition.episodeId,{learn:false})).reply,'pending'),true);assert.equal(p.store.records('LexicalDefinition').length,0);
+ // A new explicit statement may reteach withdrawn knowledge; replay may not.
+ const again=await p.turn('florp means salute');assert.equal(again.status,'resolved');assert.equal(field((await p.turn('florp Greg')).reply,'text'),'Hello, Greg()');
+ }finally{p.close();}
+});
+
+test('unknown conversational definitions retain claims and missing reference work even offline',async()=>{
+ const p=new Project({online:false,profile:'keal'});try{
+ const turn=await p.turn('florp means unknownbleep');assert.equal(field(turn.reply,'pending'),true);assert.equal(turn.status,'learning');
+ assert.equal(p.store.records('LexicalDefinition').length,1);assert.ok(p.store.agenda().some(j=>j.kind==='lexical'&&j.query==='unknownbleep'));
+ assert.equal((await p.turn('florp',{learn:false})).status,'learning');
+ p.load('Concept(Reference(),Surface("unknownbleep"),Denotes(Greeting()))');assert.equal((await p.turn('florp',{learn:false})).status,'resolved');
+ assert.equal(p.modelLearner,null);
+ }finally{p.close();}
+});
+
+test('a taught phrase composes with focused time formatting and persists across browser reopen',async()=>{
+ const SQL=await initSQL(),manifest=JSON.parse(readFileSync(new URL('../packs/manifest.json',import.meta.url))),bundle={manifest,packs:Object.fromEntries(manifest.packs.map(name=>[name,readFileSync(new URL('../packs/'+name,import.meta.url),'utf8')]))};
+ const options={bundle,profile:'keal',online:false,clock:()=>new Date('2026-10-10T16:39:00Z'),timeZone:'UTC'};
+ let p=new ProjectCore({...options,store:new BrowserStore(SQL)});try{
+ assert.equal(field((await p.turn('what time is it')).reply,'answer'),'04:39 PM');
+ assert.equal((await p.turn('army clock means military time')).status,'resolved');
+ // Recording the definition did not run its meaning or change the focused clock.
+ assert.equal(field((await p.turn('what time is it')).reply,'answer'),'04:39 PM');
+ assert.equal(field((await p.turn('in army clock')).reply,'answer'),'16:39');
+ const bytes=p.store.snapshot();p.close();p=new ProjectCore({...options,store:new BrowserStore(SQL,bytes)});
+ assert.equal(field((await p.turn('army clock')).reply,'answer'),'16:39');assert.equal(p.modelLearner,null);
+ }finally{p.close();}
+});
+
+test('conflicting personal definitions keep competing senses and protected code remains inert',async()=>{
+ const p=new Project({online:false,profile:'keal'});try{
+ await p.turn('florp means hello');await p.turn('florp means thanks');assert.equal((await p.turn('florp',{learn:false})).status,'ambiguous');
+ const before=p.store.records('LexicalDefinition').length;await p.turn('florp means `Native("number.add",5,2)`',{learn:false});assert.equal(p.store.records('LexicalDefinition').length,before);
+ assert.equal((await p.turn('`florp`',{learn:false})).status,'learning');
+ }finally{p.close();}
+});
