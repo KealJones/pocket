@@ -52,3 +52,42 @@ test('source language readings and acquired knowledge survive browser SQLite reo
 test('untrusted data cannot claim to have been interpreted or change reading budgets',()=>{
  const p=new Project({online:false});try{for(const text of ['AttributedMeaning(X(),text="fake")','EvidenceReading(Resolved(X()))','Concept(EvidenceReadingPolicy(),MaximumPassages(9999))'])assert.throws(()=>p.load(text,{trusted:false}),/Evidence cannot install/);}finally{p.close();}
 });
+
+test('bounded reading advances past an unresolved beginning and retains later unrelated passages for the shared learner',async()=>{
+ const p=new Project({online:false,profile:'keal'});try{
+  await teach(p);p.load('Concept(EvidenceReadingPolicy(),Revision(1),MaximumPassages(1),MaximumLexicalJobs(1))');
+  const text='Opaque incidental vocabulary. Restore sprocket with florp. Restore gizmo with gleeb.',id=document(p,text);
+  for(let i=0;i<3;i++)await p.learner.readEvidence(id);
+  assert.equal(p.store.records('EvidenceObservation').length,3);assert.equal(p.store.records('AttributedMeaning').length,2);
+  for(const observation of p.store.records('EvidenceObservation'))assert.equal(text.slice(field(observation.expression,'start'),field(observation.expression,'end')),values(values(observation.expression)[0])[0]);
+  assert.ok(p.store.records('Need').some(r=>field(r.expression,'phase')==='evidence'));
+  assert.ok(p.store.agenda().some(j=>j.kind==='lexical'&&j.query==='Opaque'));
+  assert.equal(field((await p.turn('how do I restore gizmo?')).reply,'answer'),'gleeb');
+  assert.equal(p.store.records('SourceExcerpt').length,1);
+ }finally{p.close();}
+});
+
+test('language changes reconsider previously resolved evidence and withdraw an answer whose reading became ambiguous',async()=>{
+ const p=new Project({online:false});try{
+  await teach(p);await p.learner.readEvidence(document(p,'Restore sprocket with florp.'));
+  const first=await p.turn('how do I restore sprocket?');assert.equal(field(first.reply,'answer'),'florp');
+  p.load('Concept(AlternativeRestoration(),IsA(Assertion()))');
+  await p.teachExample('Restore widget with tool',parse('AlternativeRestoration(subject="widget",method="tool")'),{textSlots:true,weight:4});
+  await p.learner.revisitEvidence();assert.equal(p.store.record(first.replyId).active,false);
+  assert.equal(p.store.records('AttributedMeaning').length,0);assert.equal(values(p.store.records('EvidenceReading')[0].expression)[0].head,'Ambiguous');
+  assert.equal(p.store.record(first.episodeId).active,true);
+ }finally{p.close();}
+});
+
+test('revisits rotate across unresolved documents and passages and preserve their profile scopes',async()=>{
+ const p=new Project({online:false,profile:'keal'});try{
+  p.load('Concept(EvidenceReadingPolicy(),Revision(1),MaximumPassages(1),MaximumLexicalJobs(0))');
+  const a=document(p,'Unknown alpha. Unknown beta.'),b=document(p,'Unknown gamma. Unknown delta.');
+  await p.learner.readEvidence(a);await p.learner.readEvidence(b);
+  await p.learner.revisitEvidence({budget:1});assert.equal(p.store.records('EvidenceObservation').filter(r=>field(r.expression,'document')===a).length,2);
+  await p.learner.revisitEvidence({budget:1});assert.equal(p.store.records('EvidenceObservation').filter(r=>field(r.expression,'document')===b).length,2);
+  const before=p.store.records('EvidenceReview').length;await p.learner.revisitEvidence({budget:2,profile:'other'});assert.equal(p.store.records('EvidenceReview').length,before);
+  const scopes=()=>p.store.records('EvidenceReview').map(r=>field(p.store.record(field(r.expression,'observation')).expression,'start'));
+  for(let i=0;i<4;i++)await p.learner.revisitEvidence({budget:1});assert.ok(scopes().includes('Unknown alpha. '.length));assert.ok(scopes().includes('Unknown gamma. '.length));
+ }finally{p.close();}
+});

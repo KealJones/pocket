@@ -117,10 +117,15 @@ export class ModelLearner {
     if(new TextEncoder().encode(body).length>62000){payload.sources=payload.sources.slice(-2);payload.rejected=payload.rejected.slice(-2);request.contents[0].parts[0].text=JSON.stringify(payload);body=encode();session.sourceIds=new Set(payload.sources.map(s=>s.id));}
     while(new TextEncoder().encode(body).length>62000&&payload.relatedConcepts.length){payload.relatedConcepts.pop();payload.contextBudget.truncated=true;request.contents[0].parts[0].text=JSON.stringify(payload);body=encode();}
     if(new TextEncoder().encode(body).length>62000)throw new Error('Learning context exceeds the proxy budget; narrow the request');
-    const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),45000);
+    const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),this.project.policy('ModelLearningPolicy','TeacherTimeoutMilliseconds'));
     try {
       const response=await this.fetcher(this.url,{method:'POST',headers:{'Content-Type':'application/json'},signal:controller.signal,body});
-      if(!response.ok)throw new Error('Teacher unavailable (HTTP '+response.status+'); retained knowledge remains usable');
+      if(!response.ok){
+        // Only numeric transport metadata is copied; provider messages may
+        // contain credentials or submitted text and are never retained here.
+        let upstream;try{const data=await response.json();if(Number.isInteger(data.upstreamStatus)&&data.upstreamStatus>=100&&data.upstreamStatus<=599)upstream=data.upstreamStatus;}catch{}
+        throw new Error('Teacher unavailable (HTTP '+response.status+(upstream?'; upstream HTTP '+upstream:'')+'); retained knowledge remains usable');
+      }
       const raw=await response.text();if(raw.length>1000000)throw new Error('Teacher response exceeds budget');
       const envelope=JSON.parse(raw),candidate=envelope.candidates?.[0];
       if(candidate?.finishReason&&candidate.finishReason!=='STOP')throw new Error('Teacher response incomplete: '+candidate.finishReason);
@@ -155,7 +160,12 @@ export class ModelLearner {
     const signature=fingerprint(packet.concepts);
     if(this.store.records('Counterexample').some(r=>field(r.expression,'profile','')===profile&&field(r.expression,'fingerprint')===signature))throw new Error('Proposal repeats withdrawn learning under a new name');
     const names=new Set();
-    for(const concept of concepts){const [id]=values(concept);if(concept.head!=='Concept'||!isTerm(id)||id.args.length||!/^Acquired[A-Za-z0-9_]+$/.test(id.head)||this.store.definitions().has(id.head)||names.has(id.head))throw new Error('New concepts require unique Acquired identities; core definitions cannot be replaced');names.add(id.head);}
+    for(const concept of concepts){const [id]=values(concept);
+      if(concept.head!=='Concept'||!isTerm(id)||id.args.length)throw new Error('A declaration needs Concept(Name(), ...), with a zero-argument identity');
+      if(this.store.definitions().has(id.head))throw new Error('Retained identity '+id.head+' cannot be redefined; use a new Acquired alias or construction referring to it');
+      if(!/^Acquired[A-Za-z0-9_]+$/.test(id.head))throw new Error('New identity '+id.head+' must start Acquired; rename its declaration and all references');
+      if(names.has(id.head))throw new Error('Duplicate proposed identity '+id.head+'; combine its parts into one declaration');names.add(id.head);
+    }
     const data=value=>{let count=0;walk(value,v=>{if(++count>256)throw new Error('Meaning exceeds budget');if(isTerm(v)&&['Native','Realization','Construction','Let','If','Sequence','Each','Quote','Concept'].includes(v.head))throw new Error('Behavior is not a data meaning');});};
     const declarations=[];
     for(const concept of concepts){

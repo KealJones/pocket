@@ -69,11 +69,18 @@ export function createProxy(fetcher = fetch) {
     if (!env.REQUEST_LIMITER) return json({ error: 'Rate limiter is unavailable' }, 503, cors);
     if (!(await env.REQUEST_LIMITER.limit({ key: 'pocket-gemini-public' })).success) return json({ error: 'Too many requests; try again in a minute' }, 429, { ...cors, 'retry-after': '60' });
     if (!(request.headers.get('content-type') ?? '').toLowerCase().startsWith('application/json')) return json({ error: 'Use application/json' }, 415, cors);
-    const controller = new AbortController(), timer = setTimeout(() => controller.abort(), 30000);
+    const upstreamTimeout=Number(env.UPSTREAM_TIMEOUT_MS??60000);
+    if(!Number.isInteger(upstreamTimeout)||upstreamTimeout<1000||upstreamTimeout>120000)return json({error:'Invalid server timeout setting'},503,cors);
+    const controller = new AbortController(), timer = setTimeout(() => controller.abort(), upstreamTimeout);
     try {
       let raw; try { raw = JSON.parse(await boundedText(request.body, MAX_REQUEST)); } catch (error) { if (error instanceof HTTPError) throw error; throw new HTTPError(400, 'Invalid JSON'); }
       const body = payload(raw), model = env.GEMINI_MODEL ?? 'gemini-3.8-flash';
       if (!/^gemini-[a-z0-9.-]+$/.test(model)) throw new HTTPError(503, 'Invalid server model setting');
+      if(model.startsWith('gemini-3')){
+        const thinkingLevel=env.GEMINI_THINKING_LEVEL??'low';
+        if(!['low','medium','high'].includes(thinkingLevel))throw new HTTPError(503,'Invalid server thinking level');
+        body.generationConfig.thinkingConfig={thinkingLevel};
+      }
       // Resolve Secrets Store only inside the Worker after request validation.
       let apiKey; try { apiKey = typeof env.GEMINI_API_KEY === 'string' ? env.GEMINI_API_KEY : await env.GEMINI_API_KEY.get(); } catch { throw new HTTPError(503, 'Gemini secret is unavailable'); }
       if (typeof apiKey !== 'string' || !apiKey.trim()) throw new HTTPError(503, 'Gemini secret is unavailable');

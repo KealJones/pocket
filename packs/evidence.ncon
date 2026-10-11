@@ -1,6 +1,7 @@
 // Reading source text uses the same language evidence as reading a user message.
 // A source observation cannot execute its interpreted meaning.
 Concept(EvidenceReadingPolicy(),MaximumPassages(64),RevisitBudget(2))
+Concept(EvidenceReadingPolicy(),MaximumLexicalJobs(32))
 Concept(SentenceBoundary(),Construction(pattern=List(Slot($meaning),Literal(".")),meaning=$meaning))
 Concept(RespondTo(),Realization(RespondTo(RequestKnowledge($pattern)),body=Native("knowledge.query",Quote($pattern))))
 Concept(FactQuestion(),IsA(Request()))

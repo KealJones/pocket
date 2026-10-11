@@ -2,14 +2,40 @@
   "name": "pocket-gemini",
   "main": "worker.mjs",
   "compatibility_date": "2026-10-10",
-  "compatibility_flags": ["nodejs_compat"],
+  "compatibility_flags": [
+    "nodejs_compat"
+  ],
   "workers_dev": true,
   "preview_urls": false,
-  "secrets_store_secrets": [{ "binding": "GEMINI_API_KEY", "store_id": "238d597446aa4ed4838a31bd6015a9c8", "secret_name": "gemini-api-key" }],
+  "secrets_store_secrets": [
+    {
+      "binding": "GEMINI_API_KEY",
+      "store_id": "238d597446aa4ed4838a31bd6015a9c8",
+      "secret_name": "gemini-api-key"
+    }
+  ],
   "vars": {
     "GEMINI_MODEL": "gemini-3.8-flash",
-    "ALLOWED_ORIGINS": "https://kealjones.github.io,https://napkin-next.youngsong3.chatgpt.site"
+    "ALLOWED_ORIGINS": "https://kealjones.github.io,https://napkin-next.youngsong3.chatgpt.site",
+    "GEMINI_THINKING_LEVEL": "low",
+    "UPSTREAM_TIMEOUT_MS": "60000"
   },
-  "ratelimits": [{ "name": "REQUEST_LIMITER", "namespace_id": "1001", "simple": { "limit": 10, "period": 60 } }],
-  "observability": { "enabled": true, "head_sampling_rate": 0.1, "logs": { "enabled": true, "invocation_logs": false } }
+  "ratelimits": [
+    {
+      "name": "REQUEST_LIMITER",
+      "namespace_id": "1001",
+      "simple": {
+        "limit": 10,
+        "period": 60
+      }
+    }
+  ],
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 0.1,
+    "logs": {
+      "enabled": true,
+      "invocation_logs": false
+    }
+  }
 }

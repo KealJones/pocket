@@ -29,7 +29,7 @@ test('Gemini proxy sends provider key only upstream and returns structured outpu
     assert.equal(url, 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent');
     assert.equal(options.headers['x-goog-api-key'], env.GEMINI_API_KEY);
     assert.equal(options.headers.authorization, undefined);
-    assert.equal(options.redirect, 'error');
+    assert.equal(options.redirect, 'manual');
     const parsed = JSON.parse(options.body);
     assert.equal(parsed.generationConfig.candidateCount, 1);
     assert.equal(parsed.generationConfig.temperature, 0);
@@ -73,4 +73,17 @@ test('Secrets Store values resolve only after validation and failures are redact
   const failed = await proxy.fetch(request(), { ...env, GEMINI_API_KEY: { get: async () => { throw Error('sensitive test value'); } } });
   assert.equal(failed.status, 503);
   assert.ok(!(await failed.text()).includes('sensitive test value'));
+});
+
+test('thinking and timeout settings are bounded server controls, not visitor parameters',async()=>{
+ let calls=0;const proxy=createProxy(async(_url,options)=>{calls++;assert.deepEqual(JSON.parse(options.body).generationConfig.thinkingConfig,{thinkingLevel:'low'});return Response.json({candidates:[]});});
+ assert.equal((await proxy.fetch(request(),env)).status,200);assert.equal(calls,1);
+ assert.equal((await proxy.fetch(request({...body,generationConfig:{thinkingConfig:{thinkingLevel:'high'}}}),env)).status,400);
+ for(const value of ['0','NaN','120001'])assert.equal((await proxy.fetch(request(),{...env,UPSTREAM_TIMEOUT_MS:value})).status,503);
+ assert.equal((await proxy.fetch(request(),{...env,GEMINI_THINKING_LEVEL:'minimal'})).status,503);
+ assert.equal(calls,1);
+});
+test('upstream timeout aborts the request and leaves a redacted retryable response',async()=>{
+ const proxy=createProxy(async(_url,options)=>new Promise((_resolve,reject)=>options.signal.addEventListener('abort',()=>reject(Error('sensitive aborted request')),{once:true})));
+ const response=await proxy.fetch(request(),{...env,UPSTREAM_TIMEOUT_MS:'1000'});assert.equal(response.status,504);const data=await response.json();assert.equal(data.error,'Gemini request timed out');assert.ok(!JSON.stringify(data).includes('sensitive'));
 });

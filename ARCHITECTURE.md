@@ -754,3 +754,36 @@ cycle cannot recursively rewrite input. Protected regions are excluded. Retracti
 withdraws dependent readings; browser backup/reopen retains the learned form.
 External evidence cannot install confirmed spelling relationships. This is an
 explicit labelled lesson, not automatic self-confirmation from a successful parse.
+
+### Progressive evidence work (0.12.2)
+
+A bounded source read now advances through unseen sentences instead of repeatedly
+stopping at the document's beginning. Each exact span remains an
+`EvidenceObservation`. Profile-scoped `evidence-document` jobs retain unfinished
+scans alongside individual reading jobs. New passages have priority; older
+unresolved passages rotate by review sequence. Documents likewise rotate by review
+recency, so one difficult source cannot monopolize the revisit budget. Resolved
+passages are reconsidered when the active concept-definition fingerprint changes,
+or when their supporting reading is withdrawn. This fingerprint is conservative:
+unrelated concept changes can trigger unnecessary rereading. It is not yet a
+fine-grained dependency index for negative evidence.
+
+`EvidenceReview` retains the reviewed reading, language fingerprint and sequence.
+An unchanged supported reading preserves its identity. A changed/ambiguous reading
+withdraws its earlier attribution and dependent answers, preserving the original
+source bytes and observations. The policy and span/reading records persist in
+normal notebook backups. `MaximumLexicalJobs` bounds newly queued vocabulary work
+per read; missing senses use the same lexical acquisition agenda as user input.
+Already queued words do not consume this enqueue allowance again. Known meanings,
+missing vocabulary and unfinished scans remain different kinds of evidence/work.
+Source instructions still cannot execute. This path applies to excerpts and
+plain-text documents; HTML, dictionary markup and program bytes require structural
+adapters. It does not convert arbitrary prose into reliable executable definitions.
+
+The optional Gemini transport now allows a bounded 60-second upstream request,
+with a 75-second authored client timeout. Gemini 3 uses server-selected low thinking
+by default, following the provider's current API; visitor parameters cannot change
+that control. Secrets remain in the existing Secrets Store binding. HTTP failures
+remain resumable work, not fabricated learning. Configuration and source accompany
+the public checkpoint. Provider latency/availability are not guaranteed.
+Reference: https://ai.google.dev/gemini-api/docs/generate-content/thinking .

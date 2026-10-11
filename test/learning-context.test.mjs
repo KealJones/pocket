@@ -86,3 +86,16 @@ test('graph context is bounded, keeps complete parts, filters private language a
   assert.doesNotMatch(JSON.stringify(result),/SECRET_OTHER_PROFILE/);assert.equal(p.store.version,version);
  }finally{p.close();}
 });
+
+test('a malformed teacher identity receives specific feedback and a corrected alias transfers with teaching off',async()=>{
+ let calls=0;const p=new Project({...options,fetcher:failedNetwork,teacher:{fetcher:async(_url,init)=>{
+  calls++;const data=JSON.parse(JSON.parse(init.body).contents[0].parts[0].text);
+  if(calls===1)return envelope(packet(['Concept(TwentyFourHourTime(),Surface("army clock"))']));
+  assert.match(data.validationFailure,/Retained identity TwentyFourHourTime cannot be redefined/);
+  return envelope(packet(['Concept(AcquiredArmyClock(),Surface("army clock"),Denotes(TwentyFourHourTime()))']));
+ }}});try{
+  await p.turn('what time is it');assert.equal(answer(await p.turn('army clock')),'16:39');assert.equal(calls,2);
+  assert.ok(p.store.records('LearningFailure').some(r=>field(r.expression,'message').includes('TwentyFourHourTime')));
+  p.modelLearner.enabled=false;p.online=false;assert.equal(answer(await p.turn('army clock?')),'16:39');assert.equal(calls,2);
+ }finally{p.close();}
+});

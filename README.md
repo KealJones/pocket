@@ -330,3 +330,14 @@ spelling for me**. The confirmation becomes a profile-scoped `.ncon` relationshi
 not a global meaning replacement. For example, confirming `waht → what` transfers
 through existing question forms; surrounding concepts still determine the sense.
 Confirmed forms survive notebook backup/reopen and remain retractable in Knowledge.
+
+Long excerpts and plain-text sources are read in progressive chunks. Unread
+passages, unresolved meanings and missing vocabulary remain in the shared learning
+agenda. Investigate/revisit continues that work, and newly learned language can
+change earlier source readings and withdraw answers that depended on them. Work
+rotates across retained documents and survives backup/reopen; fetching a page is
+not itself evidence that Pocket understood every sentence. Background work still
+requires the notebook to be open and a request or investigation cycle to run.
+
+See [VERIFICATION.md](VERIFICATION.md) for checkpoint checks, live-service results
+and remaining limits.

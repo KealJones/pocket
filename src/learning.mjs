@@ -1,11 +1,13 @@
 import { capture } from './ears.mjs';
-import { term,call,isTerm,values,field,format,match,substitute } from './ncon.mjs';
+import { term,call,isTerm,values,field,format,parse,match,substitute } from './ncon.mjs';
 import { learnRealization } from './code-learning.mjs';
+import {digest} from './digest.mjs';
 
 // One request worklist: evidence acquisition, grounded frames, implementation
 // lessons, then reinterpretation. Domain meanings are authored/imported concepts.
 export class Learner {
   constructor(project){this.project=project;this.store=project.store;}
+  languageFingerprint(){return digest(this.store.records('Concept').map(r=>r.id).sort().join('\n'));}
   // Sources and users share capture, lexical proposals, frames and selection.
   // Reading evidence never runs its meaning or treats it as a user command.
   async readEvidence(recordId,{profile=this.project.responseProfile??this.project.profile,context=term('Context',term('SourceEvidence'))}={}){
@@ -16,11 +18,27 @@ export class Learner {
     const accepted=record.expression.head==='SourceExcerpt'||record.expression.head==='SourceDocument'&&/^text\/plain(?:;|$)/i.test(field(record.expression,'contentType',''));
     if(!accepted)return []; // JSON, HTML and program bytes need their own data readers.
     await this.project.prepare();this.bindSenses();
-    const maximum=this.project.policy('EvidenceReadingPolicy','MaximumPassages'),results=[];
-    const segments=new Intl.Segmenter('en',{granularity:'sentence'}).segment(text);
-    for(const {segment,index}of segments){
-      if(results.length>=maximum)break;
-      if(!segment.trim())continue;
+    const maximum=this.project.policy('EvidenceReadingPolicy','MaximumPassages'),results=[],selected=[];
+    let lexicalJobs=0;const queued=new Set(this.store.agenda().filter(j=>j.kind==='lexical').map(j=>j.query.normalize('NFC').toLowerCase()));
+    const prior=this.store.records('EvidenceObservation').filter(r=>field(r.expression,'document')===recordId&&field(r.expression,'profile','')===profile&&format(field(r.expression,'context'))===format(context));
+    const seen=new Set(prior.map(r=>field(r.expression,'start')));
+    const resolved=new Set(this.store.records('EvidenceReading').filter(r=>values(r.expression)[0]?.head==='Resolved').map(r=>field(r.expression,'observation'))),language=this.languageFingerprint(),reviews=new Map();
+    for(const review of this.store.records('EvidenceReview')){const observation=field(review.expression,'observation'),held=reviews.get(observation);if(!held||field(review.expression,'sequence',0)>field(held.expression,'sequence',0))reviews.set(observation,review);}
+    let unfinished=false;
+    // Advance through unread passages first. A difficult first sentence cannot
+    // monopolize every bounded revisit and hide the rest of a retained document.
+    for(const {segment,index}of new Intl.Segmenter(field(record.expression,'language','en'),{granularity:'sentence'}).segment(text)){
+      if(!segment.trim()||seen.has(index))continue;
+      if(selected.length>=maximum){unfinished=true;break;}
+      selected.push({segment,index});
+    }
+    const revisitable=prior.filter(o=>!resolved.has(o.id)||field(reviews.get(o.id)?.expression,'language')!==language).sort((a,b)=>field(reviews.get(a.id)?.expression,'sequence',0)-field(reviews.get(b.id)?.expression,'sequence',0)||field(a.expression,'start')-field(b.expression,'start'));
+    if(revisitable.length>maximum-selected.length)unfinished=true;
+    for(const observation of revisitable){
+      if(selected.length>=maximum)break;
+      selected.push({segment:values(values(observation.expression)[0])[0],index:field(observation.expression,'start')});
+    }
+    for(const {segment,index}of selected){
       // Keep the sentence, including its whitespace and exact document offsets.
       const input=capture(segment),observation=this.store.put(call('EvidenceObservation',[input.expression],{document:recordId,start:index,end:index+segment.length,profile,context}),{source:'derived:evidence-observation',supports:[recordId,...this.store.parts('EvidenceReadingPolicy').map(p=>p.support)]});
       let analysis=await this.project.analyze(input,{profile,context});
@@ -31,15 +49,32 @@ export class Learner {
       // Changed language evidence replaces the previous reading of this passage.
       for(const old of this.store.records('EvidenceReading').filter(r=>r.id!==reading&&field(r.expression,'observation')===observation))this.store.retract(old.id);
       if(best)this.store.put(call('AttributedMeaning',[best.meaning],{observation,document:recordId,profile,text:segment,url:field(record.expression,'url',null),license:field(record.expression,'license','unspecified')}),{source:'derived:attributed-meaning',supports:[reading]});
+      this.store.put(call('EvidenceReview',[],{observation,reading,language,sequence:this.project.sequence()}),{source:'derived:evidence-review',supports:[reading]});
+      if(!best){const words=[...new Set(this.unknowns(input,analysis))];
+        if(words.length)this.store.put(call('Need',words.map(word=>term('LearnSense',word)),{phase:'evidence',profile,observation,document:recordId}),{source:'derived:evidence-need',supports:[observation]});
+        for(const word of words){const key=word.normalize('NFC').toLowerCase();if(queued.has(key))continue;if(lexicalJobs>=this.project.policy('EvidenceReadingPolicy','MaximumLexicalJobs'))break;
+          this.store.enqueue(word,'lexical');queued.add(key);lexicalJobs++;
+        }
+      }
       const job=this.store.enqueue(observation,'evidence-reading');
       this.store.updateJob(job,best?'done':'needs-evidence',best?'Read with the same retained language evidence as user input':'Passage retained; missing or competing language evidence remains explicit');
       results.push({observation,reading,result});
     }
+    const scan=this.store.enqueue(format(term('EvidenceDocument',recordId,profile,context)),'evidence-document');
+    this.store.updateJob(scan,unfinished?'waiting':'done',unfinished?'Unread passages remain; continue from retained observations':'Every passage has been observed; unresolved readings remain separate work');
     return results;
   }
   async revisitEvidence({budget=4,profile=this.project.profile}={}){
-    const jobs=this.store.agenda().filter(j=>j.kind==='evidence-reading'&&field(this.store.record(j.query)?.expression,'profile','')===profile).slice(0,budget),documents=[...new Set(jobs.map(j=>field(this.store.record(j.query)?.expression,'document')).filter(Boolean))];
-    for(const document of documents)if(this.store.record(document)?.active)await this.readEvidence(document,{profile});
+    const resolved=new Set(this.store.records('EvidenceReading').filter(r=>values(r.expression)[0]?.head==='Resolved').map(r=>field(r.expression,'observation'))),language=this.languageFingerprint(),reviews=new Map();
+    for(const review of this.store.records('EvidenceReview')){const id=field(review.expression,'observation'),held=reviews.get(id);if(!held||field(review.expression,'sequence',0)>field(held.expression,'sequence',0))reviews.set(id,review);}
+    const jobs=this.store.agenda(),documents=[];
+    for(const job of jobs)if(job.kind==='evidence-document'){
+      const scope=parse(job.query);if(values(scope)[1]===profile)documents.push(values(scope)[0]);
+    }
+    for(const observation of this.store.records('EvidenceObservation'))if(field(observation.expression,'profile','')===profile&&(!resolved.has(observation.id)||field(reviews.get(observation.id)?.expression,'language')!==language))documents.push(field(observation.expression,'document'));
+    const recency=new Map();for(const review of reviews.values()){const document=field(this.store.record(field(review.expression,'observation'))?.expression,'document');recency.set(document,Math.max(recency.get(document)??0,field(review.expression,'sequence',0)));}
+    const fair=[...new Set(documents)].sort((a,b)=>(recency.get(a)??0)-(recency.get(b)??0));
+    for(const document of fair.slice(0,budget))if(this.store.record(document)?.active)await this.readEvidence(document,{profile});
   }
   queryEvidence(pattern){
     const matches=[];

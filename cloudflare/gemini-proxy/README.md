@@ -12,11 +12,11 @@ are transmitted to Google. `GET /health` checks key binding presence without
 reading the key. `POST /v1/generate` accepts Gemini text `contents`, optional
 `systemInstruction`, and limited `generationConfig`, including JSON output.
 
-`GEMINI_MODEL` and `ALLOWED_ORIGINS` are server settings. CORS restricts browsers,
+`GEMINI_MODEL`, `GEMINI_THINKING_LEVEL`, `UPSTREAM_TIMEOUT_MS` and `ALLOWED_ORIGINS` are server settings. Gemini 3 uses low thinking by default; clients cannot raise its thinking level. The timeout can be configured from 1 to 120 seconds. CORS restricts browsers,
 not scripts outside browsers; the endpoint is intentionally public. Anyone can
 use it within the limits. Configure provider quotas to control spending.
 
-Limits: 64 KiB requests, 1 MiB responses, 30-second upstream timeout, one candidate,
+Limits: 64 KiB requests, 1 MiB responses, 60-second upstream timeout, one candidate,
 4096 maximum output tokens, 10 calls per minute per Cloudflare location. The rate
 limiter is approximate, not a global spending cap. No tools, arbitrary destinations,
 streaming, or client-selected models. Request bodies and keys are not logged by
