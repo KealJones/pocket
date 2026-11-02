@@ -1,6 +1,6 @@
-# Napkin Next
+# Pocket
 
-A new, learning-first implementation of Napkin's concept idea. Knowledge, authored
+Pocket (formerly Napkin Next) is a new, learning-first implementation of Napkin's concept idea. Knowledge, authored
 behavior, lessons, interpretations, feedback, and responses use the same `.ncon`
 notation. The original Napkin repository is unchanged.
 
