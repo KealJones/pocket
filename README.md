@@ -200,7 +200,7 @@ Concept(What(), Surface("what"),
   Surface("waht", profile="keal", weight=1.5))
 ```
 
-This records Keal's stated `waht → what` preference. Other readings can still
+This records the user's stated `waht → what` preference. Other readings can still
 compete when supported by constructions and context. The input remains `waht`.
 Weights rank evidence; they are not calibrated probabilities or certainty scores.
 
